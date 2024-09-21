@@ -101,7 +101,7 @@ def train_model(model, trainloader, testloader, device, epochs=10, learning_rate
 
         # Evaluate on test data
         test_loss, test_accuracy = evaluate_model(model, testloader, device, criterion)
-        print(f'Epoch [{epoch + 1}/{epochs}] Test Accuracy: {test_accuracy:.2f}%')
+        print(f'Epoch [{epoch + 1}/{epochs}] Test Loss: {test_loss:.2f} Test Accuracy: {test_accuracy:.2f}%')
 
         # Adjust learning rate based on test loss
         scheduler.step(test_loss)
@@ -114,7 +114,7 @@ def train_model(model, trainloader, testloader, device, epochs=10, learning_rate
         if test_loss < best_loss:
             best_loss = test_loss
             epochs_no_improve = 0
-            torch.save(model.state_dict(), './best_model.pth')  # Save the best model
+            torch.save(model.state_dict(), './models/best_model.pth')  # Save the best model
         else:
             epochs_no_improve += 1
 
