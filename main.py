@@ -20,6 +20,7 @@ def main():
 
     # Select device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using the {device}")
 
     # Task: Train a custom digit classifier on the SVHN dataset
     if args.task == 'train':
