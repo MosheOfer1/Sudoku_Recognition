@@ -1,6 +1,6 @@
 import argparse
 import torch
-from src.train_model import DigitClassifier, load_svhn_dataset, train_model, evaluate_model
+from src.train_model import DigitClassifier, load_svhn_dataset, train_model
 from src.grid_recognition import extract_sudoku_grid_and_classify
 from src.utils import save_model
 

@@ -3,15 +3,14 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
-import sys
 
 from src.utils import print_progress_bar
 
 
 # Define a deeper CNN architecture with batch normalization
-class DeeperDigitClassifier(nn.Module):
+class DigitClassifier(nn.Module):
     def __init__(self):
-        super(DeeperDigitClassifier, self).__init__()
+        super(DigitClassifier, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
         self.bn1 = nn.BatchNorm2d(64)
         self.conv2 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
@@ -61,8 +60,8 @@ def train_model(model, trainloader, testloader, device, epochs=10, learning_rate
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    # Learning rate scheduler
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True)
+    # Learning rate scheduler (verbose removed, print manually)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
 
     best_loss = float('inf')
     epochs_no_improve = 0
@@ -106,6 +105,10 @@ def train_model(model, trainloader, testloader, device, epochs=10, learning_rate
 
         # Adjust learning rate based on test loss
         scheduler.step(test_loss)
+
+        # Manually print the learning rate
+        current_lr = scheduler.optimizer.param_groups[0]['lr']
+        print(f'Epoch [{epoch + 1}/{epochs}] Learning Rate: {current_lr:.6f}')
 
         # Early Stopping logic
         if test_loss < best_loss:
