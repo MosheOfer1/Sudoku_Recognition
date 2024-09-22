@@ -45,6 +45,10 @@ def warp_perspective(image, grid_contour):
     M = cv2.getPerspectiveTransform(rect, dst)
     warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
 
+    # Debug: Show the warped grid
+    cv2.imshow("Warped Grid", warped)
+    cv2.waitKey(700)  # Wait for a key press to close the window
+
     return warped
 
 
@@ -64,11 +68,9 @@ def split_into_cells(warped_image):
     return cells
 
 
-def extract_sudoku_grid_and_classify(image_path, model, device):
-    image = cv2.imread(image_path)
-    grid_contour = detect_sudoku_grid(image)
-    warped_grid = warp_perspective(image, grid_contour)
-    cells = split_into_cells(warped_grid)
+def extract_sudoku_grid_and_classify(warped_image, model, device):
+    # Split the warped image into individual cells
+    cells = split_into_cells(warped_image)
 
     sudoku_grid = []
     for cell in cells:
@@ -79,4 +81,5 @@ def extract_sudoku_grid_and_classify(image_path, model, device):
             sudoku_grid.append(digit)
 
     sudoku_grid = np.array(sudoku_grid).reshape(9, 9)
+
     return sudoku_grid

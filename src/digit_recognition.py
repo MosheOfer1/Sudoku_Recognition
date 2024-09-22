@@ -51,6 +51,10 @@ def preprocess_digit_image(cell_image):
     # Convert to 3-channel grayscale (model expects 3 channels)
     digit_rgb = cv2.cvtColor(resized_digit, cv2.COLOR_GRAY2RGB)
 
+    # Debug: Show the resized and processed digit using OpenCV
+    cv2.imshow("Processed Digit (Resized to 224x224)", digit_rgb)
+    cv2.waitKey(300)  # Show the image for 500 milliseconds
+
     # Convert the image to a PyTorch tensor and normalize
     transform = transforms.Compose([
         transforms.ToTensor(),
