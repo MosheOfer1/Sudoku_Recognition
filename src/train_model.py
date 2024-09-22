@@ -141,7 +141,7 @@ def train_model(model, trainloader, testloader, device, epochs=20, learning_rate
 
 
 # Modified evaluation function
-def evaluate_model(model, testloader, device, criterion):
+def evaluate_model(model, testloader, device, criterion, epoch):
     model.eval()
     correct = 0
     total = 0
@@ -173,7 +173,7 @@ def evaluate_model(model, testloader, device, criterion):
             print_progress_bar(i + 1, total_batches, prefix='Evaluating', suffix='')
 
     accuracy = 100 * correct / total
-    plot_debug_images(debug_images[:16], debug_predictions[:16], debug_labels[:16])  # Plot the first 16 images
+    plot_debug_images(debug_images[:16], debug_predictions[:16], debug_labels[:16], epoch)  # Plot the first 16 images
     return running_loss / total_batches, accuracy
 
 
