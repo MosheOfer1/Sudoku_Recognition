@@ -38,7 +38,7 @@ def solve_sudoku_from_image(image_path, model, device):
 
             # Extract and classify the Sudoku grid
             print("Extracting and classifying Sudoku grid...")
-            sudoku_grid, solution = extract_sudoku_grid_and_classify(colorful_pic, model, device)
+            sudoku_grid, solution = extract_sudoku_grid_and_classify(colorful_pic, bw_warped_image, model, device)
             print(f"Extracted Sudoku grid:\n{sudoku_grid}")
 
             if sudoku_grid is not None:

@@ -167,18 +167,18 @@ def generate_most_probable_configuration(probs_list):
     return best_first_search(key_value_lists, sorted_dict_of_dicts.keys())
 
 
-def extract_sudoku_grid_and_classify(warped_image, model, device):
+def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, device):
     """Extracts Sudoku grid and classifies each digit using only the black-and-white image,
     and plots the predictions and probabilities for each predicted cell in a single figure."""
     # Split the black-and-white image into individual cells
     cells = split_into_cells(warped_image)
-
+    bw_cells = split_into_cells(bw_warped_image)
     sudoku_list = []
     predicted_cells = []  # Store cells that had predictions for plotting
     probs_list = []  # Store the probabilities for each cell
 
     for index, cell in enumerate(cells):
-        if is_cell_empty(cell):  # Use black-and-white image for empty cell detection
+        if is_cell_empty(bw_cells[index]):  # Use black-and-white image for empty cell detection
             sudoku_list.append(0)
         else:
             digit_tensor, digit_img = preprocess_digit_image(cell)
