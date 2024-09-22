@@ -49,6 +49,7 @@ class SudokuSolverApp(QMainWindow):
 
         self.streaming_mode = True  # Flag to track streaming mode
         self.captured_image = None
+        self.colorful_pic = None
         self.warped_image = None
         self.sudoku_grid = None
 
@@ -96,11 +97,11 @@ class SudokuSolverApp(QMainWindow):
                 self.captured_image = frame
                 grid_contour = detect_sudoku_grid(frame)
                 if grid_contour is not None:
-                    colorful_pic, self.warped_image = warp_perspective(frame, grid_contour)
+                    self.colorful_pic, self.warped_image = warp_perspective(frame, grid_contour)
 
-                    h, w, ch = colorful_pic.shape
+                    h, w, ch = self.colorful_pic.shape
                     bytes_per_line = ch * w
-                    qt_image = QImage(colorful_pic.data, w, h, bytes_per_line, QImage.Format_BGR888)
+                    qt_image = QImage(self.colorful_pic.data, w, h, bytes_per_line, QImage.Format_BGR888)
                     pixmap = QPixmap.fromImage(qt_image)
                     self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
                     print("Image captured and warped successfully")
@@ -121,12 +122,9 @@ class SudokuSolverApp(QMainWindow):
                 raise Exception("Please capture an image first")
 
             print("Extracting and classifying Sudoku grid...")
-            self.sudoku_grid = extract_sudoku_grid_and_classify(self.warped_image, model, device)
+            self.sudoku_grid, solved_grid = extract_sudoku_grid_and_classify(self.colorful_pic, self.warped_image, model, device)
             print(f"Extracted Sudoku grid:\n{self.sudoku_grid}")
-
-            print("Solving Sudoku...")
-            solved_grid = solve_sudoku(self.sudoku_grid)
-
+            print(f"Solved Sudoku grid:\n{solved_grid}")
             if solved_grid is not None:
                 print("Sudoku solved successfully")
                 self.draw_solution(solved_grid)
@@ -142,13 +140,24 @@ class SudokuSolverApp(QMainWindow):
             cell_height //= 9
             cell_width //= 9
 
+            # Draw the solution on the image
             for i in range(9):
                 for j in range(9):
-                    if self.sudoku_grid[i][j] == 0:
-                        x = j * cell_width + cell_width // 2
+                    if self.sudoku_grid[i][j] == 0:  # Only draw digits that were not originally present
+                        x = j * cell_width + cell_width // 4  # Adjust position for better centering
                         y = i * cell_height + cell_height // 2
-                        cv2.putText(self.warped_image, str(solved_grid[i][j]), (x, y),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        cv2.putText(self.colorful_pic, str(solved_grid[i][j]), (x, y),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (7, 7, 7), 2)
+
+            # Convert the updated image back to RGB format
+            rgb_image = cv2.cvtColor(self.colorful_pic, cv2.COLOR_BGR2RGB)
+
+            # Convert the image to a QPixmap and display it in the QLabel
+            h, w, ch = rgb_image.shape
+            bytes_per_line = ch * w
+            qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(qt_image)
+            self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
 
             print("Solution drawn on the image")
         except Exception as e:

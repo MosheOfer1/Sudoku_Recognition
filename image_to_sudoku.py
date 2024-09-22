@@ -1,10 +1,8 @@
 import cv2
-import numpy as np
 import torch
 import traceback
 from src.grid_recognition import detect_sudoku_grid, warp_perspective, extract_sudoku_grid_and_classify
 from src.train_model import DigitClassifier
-from src.utils import solve_sudoku
 
 # Path to the image file
 image_path = 'S5.jpg'
@@ -42,7 +40,7 @@ def solve_sudoku_from_image(image_path, model, device):
             print(f"Extracted Sudoku grid:\n{sudoku_grid}")
 
             if sudoku_grid is not None:
-                print(f"Solved Sudoku grid:\n{sudoku_grid}")
+                print(f"Solved Sudoku grid:\n{solution}")
                 draw_solution_on_image(sudoku_grid, solution, colorful_pic)
                 cv2.imshow("Solved Sudoku", colorful_pic)
                 cv2.waitKey(0)

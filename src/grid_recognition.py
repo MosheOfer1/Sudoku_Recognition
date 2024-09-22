@@ -1,6 +1,6 @@
-import itertools
 import cv2
 import numpy as np
+import torch
 from matplotlib import pyplot as plt
 import heapq
 from src.digit_recognition import is_cell_empty, predict_digit_with_probs, preprocess_digit_image
@@ -167,43 +167,71 @@ def generate_most_probable_configuration(probs_list):
     return best_first_search(key_value_lists, sorted_dict_of_dicts.keys())
 
 
-def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, device):
-    """Extracts Sudoku grid and classifies each digit using only the black-and-white image,
-    and plots the predictions and probabilities for each predicted cell in a single figure."""
+def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, device, max_prob_threshold=0.4,
+                                     entropy_threshold=1.8):
+    """
+    Extracts Sudoku grid and classifies each digit using only the black-and-white image,
+    and plots the predictions and probabilities for each predicted cell in a single figure.
+
+    Args:
+        warped_image: Original Sudoku grid image.
+        bw_warped_image: Black-and-white version of the Sudoku grid for empty cell detection.
+        model: Trained digit classifier model.
+        device: Torch device (CPU or GPU).
+        max_prob_threshold: Threshold for the maximum probability to consider a confident prediction.
+        entropy_threshold: Threshold for entropy to consider a confident prediction.
+
+    Returns:
+        The predicted Sudoku grid and its solution if one is found.
+    """
     # Split the black-and-white image into individual cells
     cells = split_into_cells(warped_image)
     bw_cells = split_into_cells(bw_warped_image)
-    sudoku_list = []
-    predicted_cells = []  # Store cells that had predictions for plotting
+
+    predicted_cells = []  # Store cells that had confident predictions for plotting
     probs_list = []  # Store the probabilities for each cell
 
     for index, cell in enumerate(cells):
         if is_cell_empty(bw_cells[index]):  # Use black-and-white image for empty cell detection
-            sudoku_list.append(0)
+            continue
         else:
             digit_tensor, digit_img = preprocess_digit_image(cell)
             digit, probs = predict_digit_with_probs(digit_tensor, model, device)  # Get digit and probabilities
-            sudoku_list.append(digit)
 
-            # Store the cell and probabilities for plotting later
-            predicted_cells.append((index, digit_img))
-            probs_list.append((index, probs))
+            # Convert probs to a PyTorch tensor if it's not already
+            probs = torch.tensor(probs)  # Convert numpy array to tensor
+
+            # Check maximum probability confidence
+            max_prob = torch.max(probs).item()
+
+            # Compute the entropy of the probability distribution
+            entropy = -torch.sum(probs * torch.log(probs + 1e-8)).item()
+
+            # Check if the prediction is confident based on both maximum probability and entropy
+            if max_prob > max_prob_threshold and entropy < entropy_threshold:
+                # Store the cell and probabilities if the model is confident
+                predicted_cells.append((index, digit_img))
+                probs_list.append((index, probs))
+            else:
+                print(f"Removed the {index} image with prob: {max_prob}, entropy: {entropy}")
 
     # After processing all the cells, plot all the predictions in a single figure
-    plot_all_digit_predictions(predicted_cells, [x[1] for x in probs_list])
-    limit = 10
+    # plot_all_digit_predictions(predicted_cells, [x[1] for x in probs_list])
+
+    # Generate the most probable Sudoku configuration and attempt to solve it
+    limit = 20
     for i, sudoku_grid in enumerate(generate_most_probable_configuration(probs_list)):
-        if is_valid_sudoku(sudoku_grid):
+        if not is_valid_sudoku(sudoku_grid):
             print("Not a valid grid")
             continue
 
         solution = solve_sudoku(sudoku_grid)
         if solution is not None:
-            break
+            return sudoku_grid, solution
         elif i == limit:
             return None, None
 
-    return sudoku_grid, solution
+    return None, None
 
 
 # Function to plot all the digit predictions in a single figure
@@ -244,26 +272,3 @@ def plot_all_digit_predictions(predicted_cells, probs_list):
 
     plt.tight_layout()
     plt.show()
-
-
-# def generate_random_probabilities(num_probs):
-#     """Generates a list of random probabilities that sum to 1."""
-#     probabilities = np.random.rand(num_probs)  # Generate random values
-#     probabilities /= probabilities.sum()  # Normalize to make them sum to 1
-#     return probabilities.round(2)  # Round to two decimal places for readability
-#
-#
-# # Generate probs list with more entries and each having 9 probabilities
-# probs = [
-#     (str(i), generate_random_probabilities(9))  # Index as string, 9 probabilities for each entry
-#     for i in [0, 2, 17, 30]  # Generating for 30 grid indices
-# ]
-#
-# # Example output
-# for entry in probs:
-#     print(f"Index {entry[0]}: Probabilities {entry[1]}")
-#
-# # Call the function and print the yielded configurations
-# for grid in generate_most_probable_configuration(probs):
-#     for row in grid:
-#         print(row)

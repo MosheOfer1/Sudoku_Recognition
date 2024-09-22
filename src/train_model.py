@@ -5,6 +5,7 @@ import torchvision
 import torchvision.transforms as transforms
 from matplotlib import pyplot as plt
 from torch.utils.data import Subset
+from torchvision.transforms import RandomApply
 
 from src.utils import print_progress_bar
 
@@ -19,10 +20,15 @@ class DigitClassifier(nn.Module):
         self.bn2 = nn.BatchNorm2d(128)
         self.conv3 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
         self.bn3 = nn.BatchNorm2d(256)
+        self.conv4 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1)
+        self.bn4 = nn.BatchNorm2d(512)
+        self.conv5 = nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1)
+        self.bn5 = nn.BatchNorm2d(512)
+
         self.pool = nn.MaxPool2d(2, 2)
-        self.fc1 = nn.Linear(256 * 4 * 4, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, 9)  # 9 output classes (digits 1-9)
+        self.fc1 = nn.Linear(512 * 4 * 4, 1024)  # Increased to 1024
+        self.fc2 = nn.Linear(1024, 512)  # Increased hidden units
+        self.fc3 = nn.Linear(512, 9)  # Output 9 classes (digits 1-9)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.5)
 
@@ -30,7 +36,9 @@ class DigitClassifier(nn.Module):
         x = self.pool(self.bn1(self.relu(self.conv1(x))))
         x = self.pool(self.bn2(self.relu(self.conv2(x))))
         x = self.pool(self.bn3(self.relu(self.conv3(x))))
-        x = x.view(-1, 256 * 4 * 4)
+        x = self.pool(self.bn4(self.relu(self.conv4(x))))  # Added conv4 block
+        x = self.pool(self.bn5(self.relu(self.conv5(x))))  # Added conv5 block
+        x = x.view(-1, 512 * 4 * 4)  # Adjust for new input size
         x = self.dropout(self.relu(self.fc1(x)))
         x = self.dropout(self.relu(self.fc2(x)))
         x = self.fc3(x)
@@ -53,15 +61,21 @@ def invert_colors(image):
 
 # Modified dataset loading function
 def load_svhn_dataset(batch_size=32):
+    def add_gaussian_noise(image, mean=0, std=0.1):
+        """Inject Gaussian noise into the image."""
+        noise = torch.randn(image.size()) * std + mean
+        noisy_image = image + noise
+        return torch.clamp(noisy_image, 0, 1)  # Keep pixel values in range [0, 1]
+
     transform = transforms.Compose([
         transforms.Resize((32, 32)),
-        # transforms.RandomRotation(5),  # Small random rotation
-        # transforms.ColorJitter(brightness=0.3, contrast=0.3),  # Apply color jittering
-        # transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),  # Affine transformation
-        # transforms.Grayscale(num_output_channels=1),  # Convert image to black and white (grayscale)
+        transforms.RandomRotation(3),  # Apply small random rotations
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),  # Added affine transformations
         transforms.ToTensor(),
-        # transforms.Lambda(invert_colors),  # Invert colors for black background and white digits
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Normalize for RGB images
+        RandomApply([transforms.Lambda(add_gaussian_noise)], p=0.5),  # Apply noise with 50% probability
+        # Normalize for 3-channel RGB images
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # For RGB images
     ])
 
     trainset = torchvision.datasets.SVHN(root='./data', split='train', download=True, transform=transform)

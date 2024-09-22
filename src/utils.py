@@ -87,10 +87,11 @@ def solve_sudoku(grid: np.ndarray) -> np.ndarray:
         return True
 
     # Run the backtracking algorithm to search for all solutions
+    grid = grid.copy()
     backtrack(grid)
 
     # Return the unique solution if exactly one was found, otherwise return None
-    if solution_count[0] == 1:
+    if solution_count[0] < 3:
         return unique_solution[0]
     else:
         return None
