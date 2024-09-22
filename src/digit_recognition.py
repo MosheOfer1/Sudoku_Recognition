@@ -6,10 +6,13 @@ import torchvision.transforms as transforms
 
 
 def is_cell_empty(cell):
-    """Detects if a cell is empty by looking only at the center of the black-and-white image."""
-    height, width = cell.shape[:2]
+    """Detects if a cell is empty by looking only at the center of the black-and-white (grayscale) image."""
+    # Convert the RGB image to grayscale
+    gray_cell = cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
 
-    # Define the size of the center region (e.g., 70% of the original cell size)
+    height, width = gray_cell.shape[:2]
+
+    # Define the size of the center region (e.g., 50% of the original cell size)
     center_height = int(height * 0.5)
     center_width = int(width * 0.5)
 
@@ -21,15 +24,18 @@ def is_cell_empty(cell):
     end_y = start_y + center_height
     end_x = start_x + center_width
 
-    # Crop the center of the cell
-    center_region = cell[start_y:end_y, start_x:end_x]
+    # Crop the center of the grayscale cell
+    center_region = gray_cell[start_y:end_y, start_x:end_x]
 
-    # Calculate the percentage of white pixels in the center region (assuming white pixels are 'empty')
-    threshold = 0.95  # Threshold for empty cell (tune based on testing)
+    # Threshold for white detection (tune based on testing)
+    threshold = 0.95
+
+    # Calculate the percentage of white pixels in the center region (255 means white in grayscale)
     num_white_pixels = cv2.countNonZero(center_region)
     total_pixels = center_region.shape[0] * center_region.shape[1]
-    white_ratio = 1 - (num_white_pixels / total_pixels)
+    white_ratio = num_white_pixels / total_pixels
 
+    # Return True if the white ratio exceeds the threshold, indicating the cell is empty
     return white_ratio > threshold
 
 
@@ -61,12 +67,12 @@ def preprocess_digit_image(cell_image):
     resized_digit = cv2.resize(cell_image, (32, 32))
 
     # # Convert to 3-channel grayscale (model expects 3 channels)
-    # digit_rgb = cv2.cvtColor(resized_digit, cv2.COLOR_GRAY2RGB)
+    # resized_digit = cv2.cvtColor(resized_digit, cv2.COLOR_GRAY2RGB)
 
     # Convert the image to a PyTorch tensor and normalize
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.5,), (0.5,))  # Normalize a single channel for grayscale
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Normalize for 3-channel RGB image
     ])
     digit_tensor = transform(resized_digit).unsqueeze(0)  # Add batch dimension
 
