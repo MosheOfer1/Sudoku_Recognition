@@ -32,7 +32,7 @@ class DigitClassifier(nn.Module):
         x = self.pool(self.bn1(self.relu(self.conv1(x))))
         x = self.pool(self.bn2(self.relu(self.conv2(x))))
         x = self.pool(self.bn3(self.relu(self.conv3(x))))
-        x = x.view(-1, 512 * 4 * 4)  # Adjust for new input size
+        x = x.view(-1, 256 * 4 * 4)  # Adjust for new input size
         x = self.dropout(self.relu(self.fc1(x)))
         x = self.dropout(self.relu(self.fc2(x)))
         x = self.fc3(x)
