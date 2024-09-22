@@ -16,7 +16,7 @@ model_path = './models/digit_classifier_svhn.pth'
 
 try:
     model = DigitClassifier().to(device)
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_path, map_location=device))
     print(f"Model loaded successfully from {model_path}")
 except Exception as e:
     print(f"Error loading model: {e}")
@@ -47,8 +47,14 @@ class SudokuSolverApp(QMainWindow):
         self.button_layout.addWidget(self.solve_button)
         self.layout.addLayout(self.button_layout)
 
+        self.streaming_mode = True  # Flag to track streaming mode
+        self.captured_image = None
+        self.warped_image = None
+        self.sudoku_grid = None
+
         try:
-            self.camera = cv2.VideoCapture(0)
+            stream_url = 'http://10.100.102.5:8080/video'  # Adjust the IP address
+            self.camera = cv2.VideoCapture(stream_url)
             if not self.camera.isOpened():
                 raise Exception("Could not open camera")
             print("Camera initialized successfully")
@@ -60,44 +66,51 @@ class SudokuSolverApp(QMainWindow):
         self.timer.timeout.connect(self.update_frame)
         self.timer.start(30)
 
-        self.captured_image = None
-        self.warped_image = None
-        self.sudoku_grid = None
-
     def update_frame(self):
-        try:
-            ret, frame = self.camera.read()
-            if not ret:
-                raise Exception("Failed to capture frame")
+        if self.streaming_mode:  # Update frame only if in streaming mode
+            try:
+                ret, frame = self.camera.read()
+                if not ret:
+                    raise Exception("Failed to capture frame")
 
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            grid_contour = detect_sudoku_grid(frame)
-            cv2.drawContours(frame, [grid_contour], -1, (0, 255, 0), 2)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                grid_contour = detect_sudoku_grid(frame)
+                if grid_contour is not None:
+                    cv2.drawContours(frame, [grid_contour], -1, (0, 255, 0), 2)
 
-            h, w, ch = frame.shape
-            bytes_per_line = ch * w
-            qt_image = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
-            pixmap = QPixmap.fromImage(qt_image)
-            self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
-        except Exception as e:
-            print(f"Error updating frame: {e}")
+                h, w, ch = frame.shape
+                bytes_per_line = ch * w
+                qt_image = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+                pixmap = QPixmap.fromImage(qt_image)
+                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
+            except Exception as e:
+                print(f"Error updating frame: {e}")
 
     def capture_image(self):
         try:
-            ret, frame = self.camera.read()
-            if not ret:
-                raise Exception("Failed to capture image")
+            if self.streaming_mode:  # If in streaming mode, capture the image and stop streaming
+                ret, frame = self.camera.read()
+                if not ret:
+                    raise Exception("Failed to capture image")
 
-            self.captured_image = frame
-            grid_contour = detect_sudoku_grid(frame)
-            self.warped_image = warp_perspective(frame, grid_contour)
+                self.captured_image = frame
+                grid_contour = detect_sudoku_grid(frame)
+                if grid_contour is not None:
+                    colorful_pic, self.warped_image = warp_perspective(frame, grid_contour)
 
-            h, w, ch = self.warped_image.shape
-            bytes_per_line = ch * w
-            qt_image = QImage(self.warped_image.data, w, h, bytes_per_line, QImage.Format_BGR888)
-            pixmap = QPixmap.fromImage(qt_image)
-            self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
-            print("Image captured and warped successfully")
+                    h, w, ch = colorful_pic.shape
+                    bytes_per_line = ch * w
+                    qt_image = QImage(colorful_pic.data, w, h, bytes_per_line, QImage.Format_BGR888)
+                    pixmap = QPixmap.fromImage(qt_image)
+                    self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
+                    print("Image captured and warped successfully")
+
+                self.streaming_mode = False  # Switch to showing the captured image
+
+            else:  # If already showing the captured image, resume streaming
+                self.streaming_mode = True  # Resume streaming mode
+                self.timer.start(30)
+
         except Exception as e:
             print(f"Error capturing image: {e}")
             self.show_error_message(f"Error capturing image: {e}")
@@ -137,11 +150,6 @@ class SudokuSolverApp(QMainWindow):
                         cv2.putText(self.warped_image, str(solved_grid[i][j]), (x, y),
                                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-            h, w, ch = self.warped_image.shape
-            bytes_per_line = ch * w
-            qt_image = QImage(self.warped_image.data, w, h, bytes_per_line, QImage.Format_BGR888)
-            pixmap = QPixmap.fromImage(qt_image)
-            self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
             print("Solution drawn on the image")
         except Exception as e:
             print(f"Error drawing solution: {e}")

@@ -1,6 +1,10 @@
+import itertools
 import cv2
 import numpy as np
-from src.digit_recognition import is_cell_empty, predict_digit
+from matplotlib import pyplot as plt
+import heapq
+from src.digit_recognition import is_cell_empty, predict_digit_with_probs, preprocess_digit_image
+from src.utils import solve_sudoku, is_valid_sudoku
 
 
 def detect_sudoku_grid(image):
@@ -20,6 +24,8 @@ def detect_sudoku_grid(image):
 def warp_perspective(image, grid_contour):
     if len(grid_contour) != 4:
         raise ValueError("The Sudoku grid contour should have 4 corners.")
+
+    # Get the four corner points
     pts = grid_contour.reshape(4, 2)
     rect = np.zeros((4, 2), dtype="float32")
 
@@ -31,6 +37,7 @@ def warp_perspective(image, grid_contour):
     rect[1] = pts[np.argmin(diff)]
     rect[3] = pts[np.argmax(diff)]
 
+    # Get the width and height of the new perspective
     (tl, tr, br, bl) = rect
     widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
     widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
@@ -40,16 +47,24 @@ def warp_perspective(image, grid_contour):
     heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
     maxHeight = max(int(heightA), int(heightB))
 
+    # Destination points for the perspective transform
     dst = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype="float32")
 
+    # Get the perspective transform matrix and warp the image
     M = cv2.getPerspectiveTransform(rect, dst)
     warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
 
-    # Debug: Show the warped grid
-    cv2.imshow("Warped Grid", warped)
-    cv2.waitKey(700)  # Wait for a key press to close the window
+    # Create a black and white version of the warped image with high contrast
+    gray_warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
+    # Apply adaptive threshold to improve the contrast (detect cell edges and empty cells)
+    _, bw_warped = cv2.threshold(gray_warped, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    return warped
+    # # Debug: Show the warped grid
+    # cv2.imshow("Warped Grid", warped)
+    # cv2.imshow("Black and White Warped Grid", bw_warped)
+    # cv2.waitKey(0)  # Wait for a key press to close the window
+
+    return warped, bw_warped
 
 
 def split_into_cells(warped_image):
@@ -68,18 +83,187 @@ def split_into_cells(warped_image):
     return cells
 
 
-def extract_sudoku_grid_and_classify(warped_image, model, device):
-    # Split the warped image into individual cells
-    cells = split_into_cells(warped_image)
+# Best-First Search (BFS) implementation
+def best_first_search(probs, keys):
+    # Priority queue (min-heap) for Best-First Search
+    heap = []
 
-    sudoku_grid = []
-    for cell in cells:
-        if is_cell_empty(cell):
-            sudoku_grid.append(0)
+    # Initial state: Start with the highest probability for each index
+    initial_state = [p[0][0] for p in probs]  # Highest index for each entry
+    initial_prob_product = np.prod([p[0][1] for p in probs])  # Product of highest probabilities
+
+    # Push the initial state into the heap with negative priority (since heapq is min-heap)
+    heapq.heappush(heap, (-initial_prob_product, initial_prob_product, initial_state))
+
+    # Visited states to avoid re-exploring
+    visited = set()
+
+    while heap:
+        # Pop the node with the highest probability product
+        _, prob_product, current_state = heapq.heappop(heap)
+
+        # Print the current best state and its probability product
+        print(f"Current best state: {[x+ 1 for x in current_state]}, Probability product: {prob_product}")
+
+        grid = np.zeros((9, 9), dtype=int)  # Create a 9x9 NumPy array initialized with zeros
+
+        # Fill the grid with the configuration
+        for index_str, digit in zip(keys, current_state):
+            index = int(index_str)  # Convert index to integer
+            row, col = divmod(index, 9)  # Get row and column from the index
+            grid[row][col] = digit + 1  # Place the digit in the correct cell
+        yield grid
+
+        # Mark this state as visited
+        visited.add(tuple(current_state))
+
+        # Generate child nodes (one index is changed at a time)
+        for i in range(len(probs)):
+            # Create a new state by changing the i-th index to the j-th option
+            new_state = current_state[:]
+
+            # Find the index where the first element is 'current_state[i]'
+            j = next(idx for idx, (x, _) in enumerate(probs[i]) if x == current_state[i])
+
+            if j + 1 == len(probs[i]):
+                continue
+
+            new_state[i] = probs[i][j + 1][0]  # Update the i-th index
+
+            # If this new state hasn't been visited yet
+            if tuple(new_state) not in visited:  # Convert list to tuple for checking
+                visited.add(tuple(new_state))  # Add the new state to visited as a tuple
+                new_prob = []
+                for k in range(len(probs)):
+                    # Find the index where the first element is 'current_state[k]'
+                    j = next(idx for idx, (x, _) in enumerate(probs[k]) if x == new_state[k])
+                    new_prob.append(probs[k][j][1])
+
+                # Calculate the new product of probabilities
+                new_prob_product = np.prod(new_prob)
+
+                # Push the new state into the heap
+                heapq.heappush(heap, (-new_prob_product, new_prob_product, new_state))
+
+
+def generate_most_probable_configuration(probs_list):
+    # {index in the grid : {digit1 : p, digit2 : p, ...}, ...}
+    dict_of_dicts = {
+        index: {digit: prob for digit, prob in enumerate(prob_list)}
+        for index, prob_list in probs_list
+    }
+
+    # Sort all inner dicts by their values
+    sorted_dict_of_dicts = {
+        key: dict(sorted(inner_dict.items(), reverse=True, key=lambda item: item[1]))  # Sort inner dict by values
+        for key, inner_dict in dict_of_dicts.items()
+    }
+
+    # Extract both keys (digits) and values (probabilities) from each inner dictionary
+    key_value_lists = [
+        list(inner_dict.items()) for inner_dict in sorted_dict_of_dicts.values()
+    ]
+    # Run the Best-First Search
+    return best_first_search(key_value_lists, sorted_dict_of_dicts.keys())
+
+
+def extract_sudoku_grid_and_classify(bw_warped_image, model, device):
+    """Extracts Sudoku grid and classifies each digit using only the black-and-white image,
+    and plots the predictions and probabilities for each predicted cell in a single figure."""
+    # Split the black-and-white image into individual cells
+    bw_cells = split_into_cells(bw_warped_image)
+
+    sudoku_list = []
+    predicted_cells = []  # Store cells that had predictions for plotting
+    probs_list = []  # Store the probabilities for each cell
+
+    for index, bw_cell in enumerate(bw_cells):
+        if is_cell_empty(bw_cell):  # Use black-and-white image for empty cell detection
+            sudoku_list.append(0)
         else:
-            digit = predict_digit(cell, model, device)
-            sudoku_grid.append(digit)
+            digit_tensor, digit_img = preprocess_digit_image(bw_cell)
+            digit, probs = predict_digit_with_probs(digit_tensor, model, device)  # Get digit and probabilities
+            sudoku_list.append(digit)
 
-    sudoku_grid = np.array(sudoku_grid).reshape(9, 9)
+            # Store the cell and probabilities for plotting later
+            predicted_cells.append((index, digit_img))
+            probs_list.append((index, probs))
 
-    return sudoku_grid
+    # After processing all the cells, plot all the predictions in a single figure
+    plot_all_digit_predictions(predicted_cells, [x[1] for x in probs_list])
+    limit = 10
+    for i, sudoku_grid in enumerate(generate_most_probable_configuration(probs_list)):
+        if is_valid_sudoku(sudoku_grid):
+            print("Not a valid grid")
+            continue
+
+        solution = solve_sudoku(sudoku_grid)
+        if solution is not None:
+            break
+        elif i == limit:
+            return None, None
+
+    return sudoku_grid, solution
+
+
+# Function to plot all the digit predictions in a single figure
+def plot_all_digit_predictions(predicted_cells, probs_list):
+    num_cells = len(predicted_cells)
+
+    # Define the grid size for the plots (adjust based on the number of predictions)
+    cols = 4  # Number of columns (you can adjust this)
+    rows = (num_cells + cols - 1) // cols  # Calculate the number of rows needed
+
+    fig, axes = plt.subplots(rows, cols * 2, figsize=(cols * 6, rows * 4))  # Each cell takes 2 subplots
+
+    # Flatten the axes for easy indexing
+    axes = axes.flatten()
+
+    for i, (index, (cell_index, bw_cell)) in enumerate(enumerate(predicted_cells)):
+        probs = probs_list[i]
+        digits = list(range(1, 10))  # Digits 1 to 9 (since we add 1 to the predicted digit)
+
+        # Plot the image of the cell on the left subplot
+        ax_img = axes[i * 2]
+        ax_img.imshow(bw_cell, cmap='gray')
+        ax_img.axis('off')
+        ax_img.set_title(f'Cell {cell_index + 1}')
+
+        # Plot the probabilities as a bar chart on the right subplot
+        ax_probs = axes[i * 2 + 1]
+        ax_probs.bar(digits, probs)
+        ax_probs.set_xticks(digits)
+        ax_probs.set_ylim([0, 1])  # Probability ranges from 0 to 1
+        ax_probs.set_title('Prediction Probabilities')
+        ax_probs.set_xlabel('Digits')
+        ax_probs.set_ylabel('Probability')
+
+    # Hide any unused axes
+    for j in range(i * 2 + 2, len(axes)):
+        axes[j].axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+
+# def generate_random_probabilities(num_probs):
+#     """Generates a list of random probabilities that sum to 1."""
+#     probabilities = np.random.rand(num_probs)  # Generate random values
+#     probabilities /= probabilities.sum()  # Normalize to make them sum to 1
+#     return probabilities.round(2)  # Round to two decimal places for readability
+#
+#
+# # Generate probs list with more entries and each having 9 probabilities
+# probs = [
+#     (str(i), generate_random_probabilities(9))  # Index as string, 9 probabilities for each entry
+#     for i in [0, 2, 17, 30]  # Generating for 30 grid indices
+# ]
+#
+# # Example output
+# for entry in probs:
+#     print(f"Index {entry[0]}: Probabilities {entry[1]}")
+#
+# # Call the function and print the yielded configurations
+# for grid in generate_most_probable_configuration(probs):
+#     for row in grid:
+#         print(row)
