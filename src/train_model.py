@@ -20,11 +20,9 @@ class DigitClassifier(nn.Module):
         self.bn2 = nn.BatchNorm2d(128)
         self.conv3 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
         self.bn3 = nn.BatchNorm2d(256)
-        self.conv4 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1)
-        self.bn4 = nn.BatchNorm2d(512)
 
         self.pool = nn.MaxPool2d(2, 2)
-        self.fc1 = nn.Linear(512 * 4 * 4, 1024)  # Increased to 1024
+        self.fc1 = nn.Linear(256 * 4 * 4, 1024)  # Increased to 1024
         self.fc2 = nn.Linear(1024, 512)  # Increased hidden units
         self.fc3 = nn.Linear(512, 9)  # Output 9 classes (digits 1-9)
         self.relu = nn.ReLU()
@@ -34,7 +32,6 @@ class DigitClassifier(nn.Module):
         x = self.pool(self.bn1(self.relu(self.conv1(x))))
         x = self.pool(self.bn2(self.relu(self.conv2(x))))
         x = self.pool(self.bn3(self.relu(self.conv3(x))))
-        x = self.pool(self.bn4(self.relu(self.conv4(x))))  # Added conv4 block
         x = x.view(-1, 512 * 4 * 4)  # Adjust for new input size
         x = self.dropout(self.relu(self.fc1(x)))
         x = self.dropout(self.relu(self.fc2(x)))
