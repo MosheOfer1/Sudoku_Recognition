@@ -9,7 +9,7 @@ image_path = 'S5.jpg'
 
 # Load the model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model_path = './models/digit_classifier_svhn.pth'
+model_path = './models/digit_classifier_sudoku_ds.pth'
 
 try:
     model = DigitClassifier().to(device)

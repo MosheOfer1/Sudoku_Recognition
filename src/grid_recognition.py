@@ -216,7 +216,7 @@ def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, devic
                 print(f"Removed the {index} image with prob: {max_prob}, entropy: {entropy}")
 
     # After processing all the cells, plot all the predictions in a single figure
-    # plot_all_digit_predictions(predicted_cells, [x[1] for x in probs_list])
+    plot_all_digit_predictions(predicted_cells, [x[1] for x in probs_list])
 
     # Generate the most probable Sudoku configuration and attempt to solve it
     limit = 20

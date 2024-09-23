@@ -57,9 +57,9 @@ def invert_colors(image):
 def load_dynamic_sudoku_dataset(batch_size=32):
     transform = transforms.Compose([
         transforms.Resize((32, 32)),
-        transforms.RandomRotation(3),  # Apply small random rotations
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),  # Added affine transformations
+        transforms.RandomRotation(5),  # Apply small random rotations
+        transforms.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.6, hue=0.3),
+        transforms.RandomAffine(degrees=5, translate=(0.2, 0.2), scale=(0.9, 1.1)),  # Added affine transformations
         transforms.ToTensor(),
         # Normalize for 3-channel RGB images
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # For RGB images

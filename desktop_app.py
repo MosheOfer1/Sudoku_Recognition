@@ -9,10 +9,9 @@ from PyQt5.QtGui import QImage, QPixmap
 
 from src.grid_recognition import detect_sudoku_grid, warp_perspective, extract_sudoku_grid_and_classify
 from src.train_model import DigitClassifier
-from src.utils import solve_sudoku
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model_path = './models/digit_classifier_svhn.pth'
+model_path = './models/digit_classifier_sudoku_ds.pth'
 
 try:
     model = DigitClassifier().to(device)
