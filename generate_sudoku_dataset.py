@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import random
 import matplotlib.pyplot as plt
+from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 
 from src.grid_recognition import warp_perspective, detect_sudoku_grid
@@ -49,6 +50,9 @@ class DynamicSudokuDataset(Dataset):
 
         # Increment the current index
         self.current_idx += 1
+
+        # Convert NumPy array to PIL image
+        digit_img = Image.fromarray(digit_img)
 
         return digit_img, label
 
