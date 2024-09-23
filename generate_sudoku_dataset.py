@@ -44,15 +44,15 @@ class DynamicSudokuDataset(Dataset):
         digit_img = preprocess_digit_image(self.digits[self.current_idx]) if random.random() < 0.5 else self.digits[self.current_idx]
         label = self.labels.flatten()[self.current_idx]
 
-        # Apply any transformations (e.g., resizing, normalization, etc.)
-        if self.transform:
-            digit_img = self.transform(digit_img)
-
         # Increment the current index
         self.current_idx += 1
 
         # Convert NumPy array to PIL image
         digit_img = Image.fromarray(digit_img)
+
+        # Apply any transformations (e.g., resizing, normalization, etc.)
+        if self.transform:
+            digit_img = self.transform(digit_img)
 
         return digit_img, label
 
