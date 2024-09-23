@@ -4,9 +4,10 @@ import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 from matplotlib import pyplot as plt
-from torch.utils.data import Subset
+from torch.utils.data import Subset, DataLoader
 from torchvision.transforms import RandomApply
 
+from generate_sudoku_dataset import DynamicSudokuDataset
 from src.utils import print_progress_bar
 
 
@@ -51,6 +52,25 @@ def filter_dataset(dataset):
 # Add a transform to invert the colors (white digits on black background)
 def invert_colors(image):
     return 1 - image
+
+
+def load_dynamic_sudoku_dataset(batch_size=32):
+    transform = transforms.Compose([
+        transforms.Resize((32, 32)),
+        transforms.RandomRotation(3),  # Apply small random rotations
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),  # Added affine transformations
+        transforms.ToTensor(),
+        # Normalize for 3-channel RGB images
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # For RGB images
+    ])
+
+    train_dataset = DynamicSudokuDataset(length=50_000, transform=transform)
+    test_dataset = DynamicSudokuDataset(length=15_000, transform=transform)
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
+
+    return trainloader, testloader
 
 
 # Modified dataset loading function

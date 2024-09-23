@@ -1,8 +1,7 @@
 import argparse
 import torch
 
-from generate_sudoku_dataset import DynamicSudokuDataset
-from src.train_model import DigitClassifier, load_svhn_dataset, train_model
+from src.train_model import DigitClassifier, load_svhn_dataset, train_model, load_dynamic_sudoku_dataset
 from src.grid_recognition import extract_sudoku_grid_and_classify
 from src.utils import save_model, solve_sudoku
 
@@ -41,8 +40,8 @@ def main():
 
         # # Load SVHN dataset
         # trainloader, testloader = load_svhn_dataset(batch_size=args.batch_size)
-        trainloader = DynamicSudokuDataset(length=50_000)
-        testloader = DynamicSudokuDataset(length=15_000)
+        trainloader, testloader = load_dynamic_sudoku_dataset(batch_size=args.batch_size)
+
         # Train the model
         train_model(model, trainloader, testloader, device, epochs=args.epochs)
 
