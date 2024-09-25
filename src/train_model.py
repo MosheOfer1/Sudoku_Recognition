@@ -58,7 +58,7 @@ def load_dynamic_sudoku_dataset(batch_size=32):
     transform = transforms.Compose([
         transforms.Resize((32, 32)),
         transforms.RandomRotation(5),  # Apply small random rotations
-        transforms.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.6, hue=0.3),
+        transforms.ColorJitter(brightness=1, contrast=1, saturation=0.9, hue=0.5),
         transforms.RandomAffine(degrees=5, translate=(0.2, 0.2), scale=(0.9, 1.1)),  # Added affine transformations
         transforms.ToTensor(),
         # Normalize for 3-channel RGB images

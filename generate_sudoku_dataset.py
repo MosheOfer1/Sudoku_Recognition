@@ -41,7 +41,8 @@ class DynamicSudokuDataset(Dataset):
             self.current_idx = 0  # Reset index
 
         # Get the current digit and label
-        digit_img = preprocess_digit_image(self.digits[self.current_idx]) if random.random() < 0.5 else self.digits[self.current_idx]
+        digit_img = preprocess_digit_image(self.digits[self.current_idx]) if random.random() < 0.1 else self.digits[
+            self.current_idx]
         label = self.labels.flatten()[self.current_idx]
 
         # Increment the current index
@@ -111,11 +112,11 @@ def create_random_sudoku_image():
 
     # Randomly select a font
     font = random.choice(fonts)
-    digit_color = (random.randint(0, 50), random.randint(0, 50), random.randint(0, 50))  # Black digits
+    digit_color = (random.randint(0, 150), random.randint(0, 150), random.randint(0, 150))  # Black digits
     thickness = random.randint(2, 4)  # Adjust the thickness to fit the font size
 
     cell_size = grid_size[0] // 9  # Size of each cell in the grid
-    font_size = cell_size / 100 * 3  # Set font size based on the cell size
+    font_size = cell_size / random.randint(95, 105) * random.uniform(2, 3.5)  # Set font size based on the cell size
 
     # Draw the digits on the grid
     for row in range(9):
@@ -134,7 +135,7 @@ def create_random_sudoku_image():
     line_color = (0, 0, 0)  # Black lines
     for i in range(1, 9):  # 8 lines between cells
         # Random thickness for each line
-        line_thickness = random.randint(1, 3)
+        line_thickness = random.randint(1, 4)
 
         # Vertical line
         start_point_v = (i * cell_size, 0)
@@ -148,7 +149,7 @@ def create_random_sudoku_image():
 
     # Create a brown rectangle around the grid
     brown_color = (42, 42, 165)  # BGR format for brown
-    border_thickness = 10
+    border_thickness = random.randint(6, 16)
     cv2.rectangle(image, (0, 0), (grid_size[0], grid_size[1]), brown_color, border_thickness)
 
     # Increase the canvas size before rotating to prevent cutting
@@ -162,7 +163,7 @@ def create_random_sudoku_image():
     expanded_canvas[y_offset:y_offset + grid_size[0], x_offset:x_offset + grid_size[1]] = image
 
     # Randomly rotate the entire canvas
-    angle = random.uniform(-15, 15)  # Random angle between -15 and 15 degrees
+    angle = random.uniform(-25, 25)  # Random angle between -15 and 15 degrees
     image_center = (expanded_canvas_size[1] // 2, expanded_canvas_size[0] // 2)
     rotation_matrix = cv2.getRotationMatrix2D(image_center, angle, 1.0)
     rotated_image = cv2.warpAffine(expanded_canvas, rotation_matrix, expanded_canvas_size,
@@ -172,7 +173,7 @@ def create_random_sudoku_image():
     bg_x_offset = (background.shape[1] - expanded_canvas_size[1]) // 2
     bg_y_offset = (background.shape[0] - expanded_canvas_size[0]) // 2
     background[bg_y_offset:bg_y_offset + expanded_canvas_size[0],
-    bg_x_offset:bg_x_offset + expanded_canvas_size[1]] = rotated_image
+                bg_x_offset:bg_x_offset + expanded_canvas_size[1]] = rotated_image
 
     return background, digits
 
@@ -284,7 +285,7 @@ def generate_and_visualize_sudoku_dataset():
 
     # Step 4: Preprocess each digit image
     processed_images = [
-        preprocess_digit_image(cell) if random.random() < 0.5 else cell for cell in cells
+        preprocess_digit_image(cell) if random.random() < 0.1 else cell for cell in cells
     ]
     # Plot separately
     plot_image(sudoku_image)
