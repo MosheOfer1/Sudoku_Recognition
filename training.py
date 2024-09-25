@@ -13,20 +13,19 @@ python3 training.py --dataset combined --epochs 40 --batch_size 64 --model_path 
 
 def main():
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description='Sudoku Digit Recognizer and SVHN Training')
-    parser.add_argument('--image_path', type=str, default=None,
-                        help='Path to the Sudoku image for digit recognition (required for classification)')
+    parser = argparse.ArgumentParser(description='Sudoku Dataset Training')
+
+    parser.add_argument('--dataset', type=str, choices=['svhn', 'mnist', 'sudoku', 'combined'], default='svhn',
+                        help='Dataset to use for training: "svhn", "mnist", "sudoku", or "combined"')
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs for training (default: 10)')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (default: 32)')
-    parser.add_argument('--model_path', type=str, default='./models/digit_classifier_svhn.pth',
+    parser.add_argument('--model_path', type=str, default='./models/digit_classifier_default.pth',
                         help='Path to save/load the trained model')
     args = parser.parse_args()
 
     # Select device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using the {device}")
-
-
     print("Starting model training...")
 
     # Initialize the custom digit classifier
