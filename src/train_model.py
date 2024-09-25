@@ -58,7 +58,7 @@ def load_dynamic_sudoku_dataset(batch_size=32):
     transform = transforms.Compose([
         transforms.Resize((32, 32)),
         transforms.RandomRotation(5),  # Apply small random rotations
-        transforms.ColorJitter(brightness=1, contrast=1, saturation=0.9, hue=0.5),
+        transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.3, hue=0.2),
         transforms.RandomAffine(degrees=5, translate=(0.2, 0.2), scale=(0.9, 1.1)),  # Added affine transformations
         transforms.ToTensor(),
         # Normalize for 3-channel RGB images
@@ -75,7 +75,7 @@ def load_dynamic_sudoku_dataset(batch_size=32):
 
 # Modified dataset loading function
 def load_svhn_dataset(batch_size=32):
-    def add_gaussian_noise(image, mean=0, std=0.1):
+    def add_gaussian_noise(image, mean=0, std=0.01):
         """Inject Gaussian noise into the image."""
         noise = torch.randn(image.size()) * std + mean
         noisy_image = image + noise
@@ -87,7 +87,7 @@ def load_svhn_dataset(batch_size=32):
         transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),  # Added affine transformations
         transforms.ToTensor(),
-        RandomApply([transforms.Lambda(add_gaussian_noise)], p=0.5),  # Apply noise with 50% probability
+        RandomApply([transforms.Lambda(add_gaussian_noise)], p=0.1),  # Apply noise with 50% probability
         # Normalize for 3-channel RGB images
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # For RGB images
     ])
