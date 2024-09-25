@@ -4,7 +4,7 @@ import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 from matplotlib import pyplot as plt
-from torch.utils.data import Subset, DataLoader
+from torch.utils.data import Subset, DataLoader, ConcatDataset
 from torchvision.transforms import RandomApply
 
 from generate_sudoku_dataset import DynamicSudokuDataset
@@ -101,6 +101,53 @@ def load_svhn_dataset(batch_size=32):
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
 
     return trainloader, testloader
+
+
+def load_mnist_dataset(batch_size=32):
+    from torchvision.datasets import MNIST
+
+    def filter_mnist_dataset(dataset):
+        indices = []
+        for i in range(len(dataset)):
+            label = dataset[i][1]
+            if label != 0:  # Exclude label 0
+                indices.append(i)
+        return Subset(dataset, indices)
+
+    transform = transforms.Compose([
+        transforms.Resize((32, 32)),
+        transforms.RandomRotation(5),
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.repeat(3, 1, 1)),  # Convert grayscale to RGB
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # For RGB images
+    ])
+
+    trainset = MNIST(root='./data', train=True, download=True, transform=transform)
+    trainset = filter_mnist_dataset(trainset)
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
+
+    testset = MNIST(root='./data', train=False, download=True, transform=transform)
+    testset = filter_mnist_dataset(testset)
+    testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+
+    return trainloader, testloader
+
+
+def load_combined_dataset(batch_size=32):
+    # Load individual datasets
+    svhn_trainloader, svhn_testloader = load_svhn_dataset(batch_size)
+    mnist_trainloader, mnist_testloader = load_mnist_dataset(batch_size)
+    sudoku_trainloader, sudoku_testloader = load_dynamic_sudoku_dataset(batch_size)
+
+    # Combine training datasets
+    combined_trainset = ConcatDataset([svhn_trainloader.dataset, mnist_trainloader.dataset, sudoku_trainloader.dataset])
+    combined_trainloader = DataLoader(combined_trainset, batch_size=batch_size, shuffle=True, num_workers=2)
+
+    # Combine testing datasets
+    combined_testset = ConcatDataset([svhn_testloader.dataset, mnist_testloader.dataset, sudoku_testloader.dataset])
+    combined_testloader = DataLoader(combined_testset, batch_size=batch_size, shuffle=True, num_workers=2)
+
+    return combined_trainloader, combined_testloader
 
 
 # Modified training function with additional techniques
