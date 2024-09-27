@@ -18,7 +18,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 load_dotenv()
 
 # Load Sudoku model
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = 'cpu'  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_path = './models/digit_classifier.pth'
 
 # Load GPT-2 model and tokenizer from Hugging Face
