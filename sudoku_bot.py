@@ -13,16 +13,18 @@ from src.train_model import DigitClassifier
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from transformers import AutoTokenizer, AutoModelForCausalLM
+
 # Load environment variables from .env file
 load_dotenv()
-# Load GPT-2 model and tokenizer from Hugging Face
-model_name = "microsoft/DialoGPT-large"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name)
 
 # Load Sudoku model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_path = './models/digit_classifier.pth'
+
+# Load GPT-2 model and tokenizer from Hugging Face
+model_name = "microsoft/DialoGPT-large"
+tokenizer = AutoTokenizer.from_pretrained(model_name).to(device)
+model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
 
 try:
     sudoku_model = DigitClassifier().to(device)
