@@ -23,7 +23,7 @@ model_path = './models/digit_classifier.pth'
 
 # Load GPT-2 model and tokenizer from Hugging Face
 model_name = "microsoft/DialoGPT-large"
-tokenizer = AutoTokenizer.from_pretrained(model_name).to(device)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
 
 try:
