@@ -167,8 +167,8 @@ def generate_most_probable_configuration(probs_list):
     return best_first_search(key_value_lists, sorted_dict_of_dicts.keys())
 
 
-def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, device, max_prob_threshold=0.4,
-                                     entropy_threshold=1.8):
+def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, device, max_prob_threshold=0.2,
+                                     entropy_threshold=2):
     """
     Extracts Sudoku grid and classifies each digit using only the black-and-white image,
     and plots the predictions and probabilities for each predicted cell in a single figure.
@@ -216,13 +216,13 @@ def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, devic
                 print(f"Removed the {index} image with prob: {max_prob}, entropy: {entropy}")
 
     # After processing all the cells, plot all the predictions in a single figure
-    plot_all_digit_predictions(predicted_cells, [x[1] for x in probs_list])
+    # plot_all_digit_predictions(predicted_cells, [x[1] for x in probs_list])
 
     # Generate the most probable Sudoku configuration and attempt to solve it
     limit = 20
     for i, sudoku_grid in enumerate(generate_most_probable_configuration(probs_list)):
         if not is_valid_sudoku(sudoku_grid):
-            print("Not a valid grid")
+            # print("Not a valid grid")
             continue
 
         solution = solve_sudoku(sudoku_grid)

@@ -5,11 +5,11 @@ from src.grid_recognition import detect_sudoku_grid, warp_perspective, extract_s
 from src.train_model import DigitClassifier
 
 # Path to the image file
-image_path = 'sudoku_newspaper.jpg'
+image_path = 'sudoku.jpg'
 
 # Load the model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model_path = './models/digit_classifier_sudoku_ds.pth'
+model_path = './models/digit_classifier.pth'
 
 try:
     model = DigitClassifier().to(device)

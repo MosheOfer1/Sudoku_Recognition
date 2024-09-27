@@ -4,3 +4,5 @@ data/
 src/__pycachce__/
 *.pth
 *.pyc
+.env
+venv/
