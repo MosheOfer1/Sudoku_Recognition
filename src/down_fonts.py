@@ -10,7 +10,7 @@ FONTS_KEY = os.getenv("FONTS_KEY")
 
 
 def download_and_save_fonts(num_fonts=50):
-    font_dir = "downloaded_fonts"
+    font_dir = "../downloaded_fonts"
     os.makedirs(font_dir, exist_ok=True)
 
     fonts_info_file = os.path.join(font_dir, "fonts_info.json")
