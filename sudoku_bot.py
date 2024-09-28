@@ -232,7 +232,7 @@ if __name__ == '__main__':
 
     # Load Sudoku model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_path = '../models/digit_classifier.pth'
+    model_path = 'models/digit_classifier.pth'
 
     try:
         sudoku_model = DigitClassifier().to(device)
