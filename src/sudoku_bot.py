@@ -231,7 +231,7 @@ if __name__ == '__main__':
     load_dotenv()
 
     # Load Sudoku model
-    device = 'cpu'  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = '../models/digit_classifier.pth'
 
     try:
