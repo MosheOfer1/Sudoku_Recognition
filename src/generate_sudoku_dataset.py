@@ -2,9 +2,11 @@ import numpy as np
 import cv2
 import random
 import matplotlib.pyplot as plt
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from torch.utils.data import Dataset, DataLoader
+import torchvision.transforms as transforms
 
+from src.down_fonts import download_and_save_fonts
 from src.grid_recognition import warp_perspective, detect_sudoku_grid
 
 
@@ -16,11 +18,12 @@ class DynamicSudokuDataset(Dataset):
         self.labels = None  # Placeholder for the labels
         self.digits = None  # Placeholder for digit cells
         self.current_idx = 0  # Tracks the current index (0 to 80)
+        self.fonts = download_and_save_fonts(150)
 
     def generate_new_sudoku(self):
         """Generates a new Sudoku grid and splits it into digit cells."""
         # Step 1: Generate a random Sudoku image and its labels
-        self.sudoku_image, self.labels = create_random_sudoku_image()
+        self.sudoku_image, self.labels = create_random_sudoku_image(self.fonts)
 
         # Step 2: Warp the perspective (optional)
         grid_contour = detect_sudoku_grid(self.sudoku_image)
@@ -38,10 +41,11 @@ class DynamicSudokuDataset(Dataset):
         # If we haven't generated a Sudoku yet or after every 81 digits, generate a new one
         if self.current_idx % 81 == 0:
             self.generate_new_sudoku()
+            plot_image(self.sudoku_image, idx)
             self.current_idx = 0  # Reset index
 
         # Get the current digit and label
-        digit_img = preprocess_digit_image(self.digits[self.current_idx]) if random.random() < 0.1 else self.digits[
+        digit_img = preprocess_digit_image(self.digits[self.current_idx]) if random.random() < 0.05 else self.digits[
             self.current_idx]
         label = self.labels.flatten()[self.current_idx]
 
@@ -58,12 +62,13 @@ class DynamicSudokuDataset(Dataset):
         return digit_img, label
 
 
-def plot_image(original_image):
+def plot_image(original_image, idx):
     plt.figure(figsize=(6, 6))
     plt.imshow(cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB))
     plt.title('Sudoku Image')
     plt.axis('off')
-    plt.show()
+    plt.savefig(f'sudoku_{idx}.png')
+    plt.close()
 
 
 # Function to display the cells with their labels
@@ -81,101 +86,51 @@ def plot_cells_with_labels(cells, labels):
     plt.show()
 
 
-def create_random_sudoku_image():
+# Modified create_random_sudoku_image function
+def create_random_sudoku_image(fonts):
     size = random.randint(380, 460)
     grid_size = (size, size)
-    # Create a random color for the background
-    bg_color = np.random.randint(180, 255, (1, 3)).tolist()[0]
+    bg_color = tuple(np.random.randint(180, 255, 3))
 
-    # Create the background canvas with the random color
-    background = np.ones((grid_size[0] + 200, grid_size[1] + 200, 3), dtype=np.uint8) * np.array(bg_color,
-                                                                                                 dtype=np.uint8)
-    background = cv2.GaussianBlur(background, (51, 51), 0)  # Apply Gaussian blur
+    background = Image.new('RGB', (grid_size[0] + 200, grid_size[1] + 200), bg_color)
+    image = Image.new('RGB', grid_size, 'white')
+    draw = ImageDraw.Draw(image)
 
-    # Create the white grid on top of the background
-    image = np.ones((grid_size[0], grid_size[1], 3), dtype=np.uint8) * 255  # White grid
-    digits = np.random.randint(1, 10, (9, 9))  # 81 random digits
+    digits = np.random.randint(1, 10, (9, 9))
 
-    # Font, color, thickness variations for the digits
-    # List of available fonts in OpenCV
-    fonts = [
-        cv2.FONT_HERSHEY_SIMPLEX,
-        cv2.FONT_HERSHEY_PLAIN,
-        cv2.FONT_HERSHEY_DUPLEX,
-        cv2.FONT_HERSHEY_COMPLEX,
-        cv2.FONT_HERSHEY_TRIPLEX,
-        cv2.FONT_HERSHEY_COMPLEX_SMALL,
-        cv2.FONT_HERSHEY_SCRIPT_SIMPLEX,
-        cv2.FONT_HERSHEY_SCRIPT_COMPLEX,
-        cv2.FONT_ITALIC
-    ]
+    font_path = random.choice(fonts)
+    digit_color = tuple(np.random.randint(0, 150, 3))
+    cell_size = grid_size[0] // 9
+    font_size = int(cell_size * random.uniform(0.5, 0.7))
+    font = ImageFont.truetype(font_path, font_size)
 
-    # Randomly select a font
-    font = random.choice(fonts)
-    digit_color = (random.randint(0, 150), random.randint(0, 150), random.randint(0, 150))  # Black digits
-    thickness = random.randint(2, 4)  # Adjust the thickness to fit the font size
-
-    cell_size = grid_size[0] // 9  # Size of each cell in the grid
-    font_size = cell_size / random.randint(95, 105) * random.uniform(2, 3.5)  # Set font size based on the cell size
-
-    # Draw the digits on the grid
     for row in range(9):
         for col in range(9):
             digit = str(digits[row, col])
+            text_bbox = draw.textbbox((0, 0), digit, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
+            text_x = col * cell_size + (cell_size - text_width) // 2
+            text_y = row * cell_size + (cell_size - text_height) // 2
+            draw.text((text_x, text_y), digit, font=font, fill=digit_color)
 
-            # Calculate the position for the text
-            text_size = cv2.getTextSize(digit, font, font_size, thickness)[0]
-            text_x = col * cell_size + (cell_size - text_size[0]) // 2  # Center the digit horizontally
-            text_y = row * cell_size + (cell_size + text_size[1]) // 2  # Center the digit vertically
-
-            # Add the digit to the grid
-            cv2.putText(image, digit, (text_x, text_y), font, font_size, digit_color, thickness)
-
-    # Add 8 vertical and 8 horizontal lines with random thickness between digits
-    line_color = (0, 0, 0)  # Black lines
-    for i in range(1, 9):  # 8 lines between cells
-        # Random thickness for each line
+    for i in range(10):
         line_thickness = random.randint(1, 4)
+        draw.line([(i * cell_size, 0), (i * cell_size, grid_size[0])], fill='black', width=line_thickness)
+        draw.line([(0, i * cell_size), (grid_size[1], i * cell_size)], fill='black', width=line_thickness)
 
-        # Vertical line
-        start_point_v = (i * cell_size, 0)
-        end_point_v = (i * cell_size, grid_size[0])
-        cv2.line(image, start_point_v, end_point_v, line_color, line_thickness)
-
-        # Horizontal line
-        start_point_h = (0, i * cell_size)
-        end_point_h = (grid_size[1], i * cell_size)
-        cv2.line(image, start_point_h, end_point_h, line_color, line_thickness)
-
-    # Create a brown rectangle around the grid
-    brown_color = (42, 42, 165)  # BGR format for brown
+    brown_color = (42, 42, 165)
     border_thickness = random.randint(6, 16)
-    cv2.rectangle(image, (0, 0), (grid_size[0], grid_size[1]), brown_color, border_thickness)
+    draw.rectangle([(0, 0), (grid_size[0] - 1, grid_size[1] - 1)], outline=brown_color, width=border_thickness)
 
-    # Increase the canvas size before rotating to prevent cutting
-    expanded_canvas_size = (grid_size[0] + 200, grid_size[1] + 200)
-    expanded_canvas = np.ones((expanded_canvas_size[0], expanded_canvas_size[1], 3), dtype=np.uint8) * np.array(
-        bg_color, dtype=np.uint8)
+    angle = random.uniform(-25, 25)
+    rotated_image = image.rotate(angle, expand=True, fillcolor=bg_color)
 
-    # Paste the grid in the center of the expanded canvas
-    x_offset = (expanded_canvas_size[1] - grid_size[1]) // 2
-    y_offset = (expanded_canvas_size[0] - grid_size[0]) // 2
-    expanded_canvas[y_offset:y_offset + grid_size[0], x_offset:x_offset + grid_size[1]] = image
+    bg_x_offset = (background.width - rotated_image.width) // 2
+    bg_y_offset = (background.height - rotated_image.height) // 2
+    background.paste(rotated_image, (bg_x_offset, bg_y_offset))
 
-    # Randomly rotate the entire canvas
-    angle = random.uniform(-25, 25)  # Random angle between -15 and 15 degrees
-    image_center = (expanded_canvas_size[1] // 2, expanded_canvas_size[0] // 2)
-    rotation_matrix = cv2.getRotationMatrix2D(image_center, angle, 1.0)
-    rotated_image = cv2.warpAffine(expanded_canvas, rotation_matrix, expanded_canvas_size,
-                                   borderMode=cv2.BORDER_CONSTANT, borderValue=bg_color)
-
-    # Paste the rotated Sudoku grid on the background
-    bg_x_offset = (background.shape[1] - expanded_canvas_size[1]) // 2
-    bg_y_offset = (background.shape[0] - expanded_canvas_size[0]) // 2
-    background[bg_y_offset:bg_y_offset + expanded_canvas_size[0],
-                bg_x_offset:bg_x_offset + expanded_canvas_size[1]] = rotated_image
-
-    return background, digits
+    return np.array(background), digits
 
 
 # Split the warped image into 9x9 cells
@@ -209,9 +164,9 @@ def preprocess_or_convert_to_rgb(cell):
         return cell  # Already 3-channel RGB
 
 
-def generate_and_visualize_sudoku_dataset():
+def generate_and_visualize_sudoku_dataset(fonts):
     # Step 1: Generate a random Sudoku image
-    sudoku_image, labels = create_random_sudoku_image()
+    sudoku_image, labels = create_random_sudoku_image(fonts)
 
     # Step 2: Warp the perspective (optional: define your grid_contour)
     grid_contour = detect_sudoku_grid(sudoku_image)
@@ -225,23 +180,58 @@ def generate_and_visualize_sudoku_dataset():
         preprocess_digit_image(cell) if random.random() < 0.1 else cell for cell in cells
     ]
     # Plot separately
-    plot_image(sudoku_image)
-    plot_image(warped_image)
+    plot_image(sudoku_image, 1)
+    plot_image(warped_image, 2)
     plot_cells_with_labels(processed_images, labels)
 
 
+def plot_image_batch(images, labels, batch_idx):
+    # Convert images from tensor to numpy and denormalize
+    images = images.permute(0, 2, 3, 1).cpu().numpy()
+    images = (images * 0.5 + 0.5).clip(0, 1)
+
+    # Create a grid of subplots
+    fig, axes = plt.subplots(4, 8, figsize=(20, 10))
+    fig.suptitle(f'Batch {batch_idx}', fontsize=16)
+
+    for i, ax in enumerate(axes.flat):
+        if i < images.shape[0]:
+            ax.imshow(images[i])
+            ax.set_title(f'Label: {labels[i].item()}')
+        ax.axis('off')
+
+    plt.tight_layout()
+    plt.savefig(f'batch_{batch_idx}_visualization.png')
+    plt.close()
+
+
 if __name__ == "__main__":
-    generate_and_visualize_sudoku_dataset()
-    # # Initialize the dataset
-    # sudoku_dataset = DynamicSudokuDataset()
-    #
-    # # Create a DataLoader with batch size 32
-    # data_loader = DataLoader(sudoku_dataset, batch_size=32, shuffle=False, num_workers=2)
-    #
-    # # Example: Fetch a few batches of data from the infinite stream
-    # for batch_idx, (digit_images, labels) in enumerate(data_loader):
-    #     print(f"Batch {batch_idx}: Digit Image Shape: {digit_images.shape}, Labels Shape: {labels.shape}")
-    #
-    #     # Stop after a few batches for the sake of demonstration
-    #     if batch_idx >= 4:  # Fetch only 5 batches (i.e., 5 * 32 = 160 images)
-    #         break
+
+    # Your existing code
+    transform = transforms.Compose([
+        transforms.Resize((32, 32)),
+        transforms.RandomRotation(3),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.1),
+        transforms.RandomAffine(degrees=2, translate=(0.2, 0.2), scale=(0.99, 1.01)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    # Initialize the dataset
+    sudoku_dataset = DynamicSudokuDataset(transform=transform)
+
+    # Create a DataLoader with batch size 32
+    data_loader = DataLoader(sudoku_dataset, batch_size=32, shuffle=False, num_workers=2)
+
+    # Fetch a few batches of data and plot them
+    for batch_idx, (digit_images, labels) in enumerate(data_loader):
+        print(f"Batch {batch_idx}: Digit Image Shape: {digit_images.shape}, Labels Shape: {labels.shape}")
+
+        # Plot the images
+        plot_image_batch(digit_images, labels, batch_idx)
+
+        # Stop after a few batches for the sake of demonstration
+        if batch_idx >= 4:
+            break
+
+    print("Visualization complete. Check the saved PNG files for each batch.")

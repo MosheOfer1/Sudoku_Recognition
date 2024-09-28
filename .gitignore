@@ -6,3 +6,4 @@ src/__pycachce__/
 *.pyc
 .env
 venv/
+src/download_fonts/*.ttf
