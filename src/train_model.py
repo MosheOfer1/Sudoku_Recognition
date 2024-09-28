@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from torch.utils.data import Subset, DataLoader, ConcatDataset
 from torchvision.transforms import RandomApply
 
-from generate_sudoku_dataset import DynamicSudokuDataset
+from src.generate_sudoku_dataset import DynamicSudokuDataset
 from src.utils import print_progress_bar
 
 

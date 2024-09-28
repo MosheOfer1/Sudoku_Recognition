@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import torch
-from matplotlib import pyplot as plt
 import heapq
 from src.digit_recognition import is_cell_empty, predict_digit_with_probs, preprocess_digit_image
 from src.utils import solve_sudoku, is_valid_sudoku
@@ -103,7 +102,7 @@ def best_first_search(probs, keys):
         _, prob_product, current_state = heapq.heappop(heap)
 
         # Print the current best state and its probability product
-        print(f"Current best state: {[x+ 1 for x in current_state]}, Probability product: {prob_product}")
+        # print(f"Current best state: {[x+ 1 for x in current_state]}, Probability product: {prob_product}")
 
         grid = np.zeros((9, 9), dtype=int)  # Create a 9x9 NumPy array initialized with zeros
 
@@ -233,42 +232,3 @@ def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, devic
 
     return None, None
 
-
-# Function to plot all the digit predictions in a single figure
-def plot_all_digit_predictions(predicted_cells, probs_list):
-    num_cells = len(predicted_cells)
-
-    # Define the grid size for the plots (adjust based on the number of predictions)
-    cols = 4  # Number of columns (you can adjust this)
-    rows = (num_cells + cols - 1) // cols  # Calculate the number of rows needed
-
-    fig, axes = plt.subplots(rows, cols * 2, figsize=(cols * 6, rows * 4))  # Each cell takes 2 subplots
-
-    # Flatten the axes for easy indexing
-    axes = axes.flatten()
-
-    for i, (index, (cell_index, bw_cell)) in enumerate(enumerate(predicted_cells)):
-        probs = probs_list[i]
-        digits = list(range(1, 10))  # Digits 1 to 9 (since we add 1 to the predicted digit)
-
-        # Plot the image of the cell on the left subplot
-        ax_img = axes[i * 2]
-        ax_img.imshow(bw_cell, cmap='gray')
-        ax_img.axis('off')
-        ax_img.set_title(f'Cell {cell_index + 1}')
-
-        # Plot the probabilities as a bar chart on the right subplot
-        ax_probs = axes[i * 2 + 1]
-        ax_probs.bar(digits, probs)
-        ax_probs.set_xticks(digits)
-        ax_probs.set_ylim([0, 1])  # Probability ranges from 0 to 1
-        ax_probs.set_title('Prediction Probabilities')
-        ax_probs.set_xlabel('Digits')
-        ax_probs.set_ylabel('Probability')
-
-    # Hide any unused axes
-    for j in range(i * 2 + 2, len(axes)):
-        axes[j].axis('off')
-
-    plt.tight_layout()
-    plt.show()

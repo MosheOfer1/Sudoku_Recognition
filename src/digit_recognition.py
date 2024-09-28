@@ -3,6 +3,7 @@ import numpy as np
 import torch.nn.functional as F
 import torch
 import torchvision.transforms as transforms
+from matplotlib import pyplot as plt
 
 
 def is_cell_empty(cell):
@@ -35,33 +36,8 @@ def is_cell_empty(cell):
 
 # Function to preprocess the B&W cell image for digit classification
 def preprocess_digit_image(cell_image):
-    # # Threshold the image to binary (black & white)
-    # _, thresh = cv2.threshold(cell_image, 128, 255, cv2.THRESH_BINARY_INV)
-    #
-    # # Find contours to isolate the digit
-    # contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    #
-    # if len(contours) == 0:
-    #     # If no contour is found, return a blank tensor
-    #     return torch.zeros(1, 3, 32, 32)  # Return a blank tensor for model input
-    #
-    # # Find the bounding box of the largest contour (assumed to be the digit)
-    # largest_contour = max(contours, key=cv2.contourArea)
-    # x, y, w, h = cv2.boundingRect(largest_contour)
-    #
-    # # Crop the digit with some padding around it (to avoid cutting too closely)
-    # padding = 2
-    # x1 = max(0, x - padding)
-    # y1 = max(0, y - padding)
-    # x2 = min(cell_image.shape[1], x + w + padding)
-    # y2 = min(cell_image.shape[0], y + h + padding)
-    # cell_image = thresh[y1:y2, x1:x2]
-
     # Resize the cropped digit to 32x32 (required by your custom model)
     resized_digit = cv2.resize(cell_image, (32, 32))
-
-    # # Convert to 3-channel grayscale (model expects 3 channels)
-    # resized_digit = cv2.cvtColor(resized_digit, cv2.COLOR_GRAY2RGB)
 
     # Convert the image to a PyTorch tensor and normalize
     transform = transforms.Compose([
@@ -89,3 +65,44 @@ def predict_digit_with_probs(digit_tensor, model, device):
     predicted_digit = np.argmax(probs).item()
 
     return predicted_digit + 1, probs  # Return both the predicted digit and the probabilities
+
+
+# Function to plot all the digit predictions in a single figure
+def plot_all_digit_predictions(predicted_cells, probs_list):
+    num_cells = len(predicted_cells)
+
+    # Define the grid size for the plots (adjust based on the number of predictions)
+    cols = 4  # Number of columns (you can adjust this)
+    rows = (num_cells + cols - 1) // cols  # Calculate the number of rows needed
+
+    fig, axes = plt.subplots(rows, cols * 2, figsize=(cols * 6, rows * 4))  # Each cell takes 2 subplots
+
+    # Flatten the axes for easy indexing
+    axes = axes.flatten()
+
+    for i, (index, (cell_index, bw_cell)) in enumerate(enumerate(predicted_cells)):
+        probs = probs_list[i]
+        digits = list(range(1, 10))  # Digits 1 to 9 (since we add 1 to the predicted digit)
+
+        # Plot the image of the cell on the left subplot
+        ax_img = axes[i * 2]
+        ax_img.imshow(bw_cell, cmap='gray')
+        ax_img.axis('off')
+        ax_img.set_title(f'Cell {cell_index + 1}')
+
+        # Plot the probabilities as a bar chart on the right subplot
+        ax_probs = axes[i * 2 + 1]
+        ax_probs.bar(digits, probs)
+        ax_probs.set_xticks(digits)
+        ax_probs.set_ylim([0, 1])  # Probability ranges from 0 to 1
+        ax_probs.set_title('Prediction Probabilities')
+        ax_probs.set_xlabel('Digits')
+        ax_probs.set_ylabel('Probability')
+
+    # Hide any unused axes
+    for j in range(i * 2 + 2, len(axes)):
+        axes[j].axis('off')
+
+    plt.tight_layout()
+    # plt.show()
+    plt.savefig('digits.png')
