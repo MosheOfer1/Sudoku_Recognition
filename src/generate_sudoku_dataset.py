@@ -206,8 +206,6 @@ def plot_image_batch(images, labels, batch_idx):
 
 
 if __name__ == "__main__":
-
-    # Your existing code
     transform = transforms.Compose([
         transforms.Resize((32, 32)),
         transforms.RandomRotation(3),
