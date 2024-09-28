@@ -102,7 +102,7 @@ def best_first_search(probs, keys):
         _, prob_product, current_state = heapq.heappop(heap)
 
         # Print the current best state and its probability product
-        # print(f"Current best state: {[x+ 1 for x in current_state]}, Probability product: {prob_product}")
+        print(f"Current best state: {[x+ 1 for x in current_state]}, Probability product: {prob_product}")
 
         grid = np.zeros((9, 9), dtype=int)  # Create a 9x9 NumPy array initialized with zeros
 

@@ -209,69 +209,6 @@ def preprocess_or_convert_to_rgb(cell):
         return cell  # Already 3-channel RGB
 
 
-# # Save the dataset in .pt format
-# def save_to_ptfile(images, labels, filename='sudoku_dataset.pt'):
-#     # Ensure all images are RGB (32, 32, 3)
-#     images_rgb = [preprocess_or_convert_to_rgb(img) for img in images]
-#
-#     # Convert images to tensor format (from lists of numpy arrays)
-#     images_tensor = torch.stack(
-#         [torch.tensor(img, dtype=torch.float32).permute(2, 0, 1) for img in images_rgb])  # Permute to (C, H, W)
-#     labels_tensor = torch.tensor(labels, dtype=torch.long)  # Convert labels to tensor
-#
-#     # Save to .pt file
-#     torch.save({'images': images_tensor, 'labels': labels_tensor}, filename)
-#
-#
-# # Function to load the dataset and plot all digits with labels
-# def load_and_plot_sudoku_dataset(filename='sudoku_dataset.pt', batch_size=81):
-#     # Load the dataset
-#     dataset = SudokuDataset(data_path=filename)
-#
-#     # Create a DataLoader to load one batch (81 images)
-#     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-#
-#     # Get one batch of images and labels
-#     for images, labels in dataloader:
-#         # Convert images to numpy arrays for plotting (detach from computation graph)
-#         images = images.detach().numpy()
-#
-#         # Ensure images are reshaped correctly for 3-channel RGB images (batch_size, height, width, channels)
-#         images = images.transpose(0, 2, 3, 1)  # Convert from (batch_size, channels, height, width) to (batch_size, height, width, channels)
-#
-#         # Plot the first batch of images and labels
-#         plot_cells_with_labels(images, labels.numpy())
-#         break  # We only need the first batch
-
-
-# Modify the main function to include separate visualization
-# # Main function to generate the dataset
-# def generate_sudoku_dataset(num_samples=1000):
-#     all_images = []
-#     all_labels = []
-#
-#     for _ in range(num_samples):
-#         # Step 1: Generate a random Sudoku image
-#         sudoku_image, labels = create_random_sudoku_image()
-#
-#         # Step 2: Warp the perspective (optional: define your grid_contour)
-#         grid_contour = detect_sudoku_grid(sudoku_image)
-#         warped_image, _ = warp_perspective(sudoku_image, grid_contour)
-#
-#         # Step 3: Split into 81 digit cells
-#         cells = split_into_cells(warped_image)
-#
-#         # Step 4: Preprocess each digit image and append to dataset
-#         processed_images = [
-#             preprocess_digit_image(cell) if random.random() < 0.5 else cell for cell in cells
-#         ]
-#         # Collect all images and labels
-#         all_images.extend(processed_images)
-#         all_labels.extend(labels.flatten())  # Flatten the 9x9 label grid
-#
-#     # Step 5: Save to .mat file
-#     save_to_ptfile(all_images, all_labels)
-
 def generate_and_visualize_sudoku_dataset():
     # Step 1: Generate a random Sudoku image
     sudoku_image, labels = create_random_sudoku_image()
@@ -295,16 +232,16 @@ def generate_and_visualize_sudoku_dataset():
 
 if __name__ == "__main__":
     generate_and_visualize_sudoku_dataset()
-    # Initialize the dataset
-    sudoku_dataset = DynamicSudokuDataset()
-
-    # Create a DataLoader with batch size 32
-    data_loader = DataLoader(sudoku_dataset, batch_size=32, shuffle=False, num_workers=2)
-
-    # Example: Fetch a few batches of data from the infinite stream
-    for batch_idx, (digit_images, labels) in enumerate(data_loader):
-        print(f"Batch {batch_idx}: Digit Image Shape: {digit_images.shape}, Labels Shape: {labels.shape}")
-
-        # Stop after a few batches for the sake of demonstration
-        if batch_idx >= 4:  # Fetch only 5 batches (i.e., 5 * 32 = 160 images)
-            break
+    # # Initialize the dataset
+    # sudoku_dataset = DynamicSudokuDataset()
+    #
+    # # Create a DataLoader with batch size 32
+    # data_loader = DataLoader(sudoku_dataset, batch_size=32, shuffle=False, num_workers=2)
+    #
+    # # Example: Fetch a few batches of data from the infinite stream
+    # for batch_idx, (digit_images, labels) in enumerate(data_loader):
+    #     print(f"Batch {batch_idx}: Digit Image Shape: {digit_images.shape}, Labels Shape: {labels.shape}")
+    #
+    #     # Stop after a few batches for the sake of demonstration
+    #     if batch_idx >= 4:  # Fetch only 5 batches (i.e., 5 * 32 = 160 images)
+    #         break
