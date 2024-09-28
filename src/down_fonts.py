@@ -9,8 +9,8 @@ load_dotenv()
 FONTS_KEY = os.getenv("FONTS_KEY")
 
 
-def download_and_save_fonts(num_fonts=50):
-    font_dir = "../downloaded_fonts"
+def download_and_save_fonts(num_fonts=150):
+    font_dir = "downloaded_fonts"
     os.makedirs(font_dir, exist_ok=True)
 
     fonts_info_file = os.path.join(font_dir, "fonts_info.json")
@@ -28,7 +28,20 @@ def download_and_save_fonts(num_fonts=50):
     downloaded_fonts = []
     fonts_info = []
     for font in random.sample(fonts_data['items'], num_fonts):
-        font_url = font['files']['regular']
+        font_files = font['files']
+        font_url = None
+
+        # Try to get the 'regular' version first, then fall back to any other available version
+        if 'regular' in font_files:
+            font_url = font_files['regular']
+        elif font_files:
+            # Get the first available font file
+            font_url = next(iter(font_files.values()))
+
+        if not font_url:
+            print(f"No suitable font file found for {font['family']}. Skipping.")
+            continue
+
         font_name = font['family'].replace(' ', '_') + '.ttf'
         font_path = os.path.join(font_dir, font_name)
 
@@ -42,7 +55,7 @@ def download_and_save_fonts(num_fonts=50):
                 print(f"Downloaded: {font_name}")
             except:
                 os.remove(font_path)
-                print(f"Failed to download: {font_name}")
+                print(f"Failed to download or invalid font: {font_name}")
                 continue
         else:
             print(f"Font already exists: {font_name}")
