@@ -47,8 +47,7 @@ class DynamicSudokuDataset(Dataset):
             self.current_idx = 0  # Reset index
 
         # Get the current digit and label
-        digit_img = preprocess_digit_image(self.digits[self.current_idx]) if random.random() < 0.05 else self.digits[
-            self.current_idx]
+        digit_img = self.digits[self.current_idx]
         label = self.labels.flatten()[self.current_idx]
 
         # Increment the current index
@@ -148,24 +147,6 @@ def split_into_cells(warped_image, cell_size=32):
     return cells
 
 
-# Preprocess the digit image
-def preprocess_digit_image(cell_image):
-    # Convert to grayscale, apply threshold or any additional preprocessing if necessary
-    gray = cv2.cvtColor(cell_image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 128, 255, cv2.THRESH_BINARY_INV)
-    return preprocess_or_convert_to_rgb(thresh)
-
-
-# Convert to 3-channel (RGB) if needed
-def preprocess_or_convert_to_rgb(cell):
-    if len(cell.shape) == 2:  # If the cell is grayscale (2D array)
-        return cv2.cvtColor(cell, cv2.COLOR_GRAY2RGB)  # Convert to 3-channel RGB
-    elif len(cell.shape) == 3 and cell.shape[2] == 1:  # If the cell is single-channel
-        return np.repeat(cell, 3, axis=2)  # Repeat the single channel into 3 channels
-    else:
-        return cell  # Already 3-channel RGB
-
-
 def generate_and_visualize_sudoku_dataset(fonts):
     # Step 1: Generate a random Sudoku image
     sudoku_image, labels = create_random_sudoku_image(fonts)
@@ -177,14 +158,10 @@ def generate_and_visualize_sudoku_dataset(fonts):
     # Step 3: Split into 81 digit cells
     cells = split_into_cells(warped_image)
 
-    # Step 4: Preprocess each digit image
-    processed_images = [
-        preprocess_digit_image(cell) if random.random() < 0.1 else cell for cell in cells
-    ]
     # Plot separately
     plot_image(sudoku_image, 1)
     plot_image(warped_image, 2)
-    plot_cells_with_labels(processed_images, labels)
+    plot_cells_with_labels(cells, labels)
 
 
 def plot_image_batch(images, labels, batch_idx):
