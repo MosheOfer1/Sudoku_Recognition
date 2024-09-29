@@ -51,8 +51,14 @@ def generate_llm_response(user_id, user_message):
 
 
 def solve_sudoku_with_timeout(image_data, model, device, timeout_duration):
+    # Create a multiprocessing Queue to capture the result
+    result_queue = multiprocessing.Queue()
+
     # Create a multiprocessing process for the solver
-    process = multiprocessing.Process(target=solve_sudoku_from_image_in_memory, args=(image_data, model, device))
+    process = multiprocessing.Process(
+        target=solve_sudoku_from_image_in_memory,
+        args=(image_data, model, device, result_queue)
+    )
     process.start()
 
     # Wait for the process to complete within the timeout
@@ -63,17 +69,22 @@ def solve_sudoku_with_timeout(image_data, model, device, timeout_duration):
         process.terminate()  # Kill the process if it's still running
         return None, "Timeout: The Sudoku-solving process took too long. Please try again with a clearer image."
     else:
-        # Assuming you return result via shared memory or other IPC mechanism
-        return process.exitcode, None  # Modify this part based on how you return the result
+        # Retrieve the result from the queue
+        if not result_queue.empty():
+            result, error_message = result_queue.get()
+            return result, error_message
+        else:
+            return None, "No result returned from the process."
 
 
 # Function to solve Sudoku from an image loaded in RAM
-def solve_sudoku_from_image_in_memory(image_data, model, device):
+def solve_sudoku_from_image_in_memory(image_data, model, device, result_queue):
     image_array = np.frombuffer(image_data, dtype=np.uint8)
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
     if image is None:
-        return None, "Error: Could not load the image. Please try again."
+        result_queue.put((None, "Error: Could not load the image. Please try again."))
+        return
 
     try:
         grid_contour = detect_sudoku_grid(image)
@@ -82,14 +93,14 @@ def solve_sudoku_from_image_in_memory(image_data, model, device):
             sudoku_grid, solution = extract_sudoku_grid_and_classify(colorful_pic, bw_warped_image, model, device)
             if sudoku_grid is not None:
                 draw_solution_on_image(sudoku_grid, solution, colorful_pic)
-                return colorful_pic, None
+                result_queue.put((colorful_pic, None))  # Return result through queue
             else:
-                return None, "Unable to solve the Sudoku puzzle. Make sure the image is clear and try again."
+                result_queue.put((None, "Unable to solve the Sudoku puzzle. Make sure the image is clear and try again."))
         else:
-            return None, "Failed to detect Sudoku grid. Please ensure the image is a clear picture of a Sudoku puzzle."
+            result_queue.put((None, "Failed to detect Sudoku grid. Please ensure the image is a clear picture of a Sudoku puzzle."))
     except Exception as e:
         traceback.print_exc()
-        return None, f"An error occurred: {e}"
+        result_queue.put((None, f"An error occurred: {e}"))
 
 
 # Draw the solution on the colorful image
