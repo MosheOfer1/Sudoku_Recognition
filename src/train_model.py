@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 from torch.utils.data import Subset, DataLoader, ConcatDataset
 from torchvision.transforms import RandomApply
 
+from src.down_fonts import download_and_save_fonts
 from src.generate_sudoku_dataset import DynamicSudokuDataset
 from src.utils import print_progress_bar
 
@@ -64,10 +65,11 @@ def load_dynamic_sudoku_dataset(batch_size=32):
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
-    train_dataset = DynamicSudokuDataset(length=50_000, transform=transform)
-    test_dataset = DynamicSudokuDataset(length=15_000, transform=transform)
-    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
-    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
+    fonts = download_and_save_fonts(150)
+    train_dataset = DynamicSudokuDataset(fonts=fonts, length=50_000, transform=transform)
+    test_dataset = DynamicSudokuDataset(fonts=fonts, length=15_000, transform=transform)
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
     return trainloader, testloader
 

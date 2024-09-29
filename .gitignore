@@ -2,8 +2,8 @@
 data/*.mat
 data/
 src/__pycachce__/
+src/downloaded_fonts/
 *.pth
 *.pyc
 .env
 venv/
-src/download_fonts/*.ttf

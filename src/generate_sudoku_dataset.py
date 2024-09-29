@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import cv2
 import random
@@ -11,14 +13,14 @@ from src.grid_recognition import warp_perspective, detect_sudoku_grid
 
 
 class DynamicSudokuDataset(Dataset):
-    def __init__(self, length=30_000, transform=None):
+    def __init__(self, fonts, length=30_000, transform=None):
         self.length = length
         self.transform = transform
         self.sudoku_image = None  # Placeholder for the current Sudoku image
         self.labels = None  # Placeholder for the labels
         self.digits = None  # Placeholder for digit cells
         self.current_idx = 0  # Tracks the current index (0 to 80)
-        self.fonts = download_and_save_fonts(150)
+        self.fonts = fonts
 
     def generate_new_sudoku(self):
         """Generates a new Sudoku grid and splits it into digit cells."""
@@ -214,12 +216,12 @@ if __name__ == "__main__":
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
-
+    fonts = download_and_save_fonts(150)
     # Initialize the dataset
-    sudoku_dataset = DynamicSudokuDataset(transform=transform)
+    sudoku_dataset = DynamicSudokuDataset(fonts=fonts, transform=transform)
 
     # Create a DataLoader with batch size 32
-    data_loader = DataLoader(sudoku_dataset, batch_size=32, shuffle=False, num_workers=2)
+    data_loader = DataLoader(sudoku_dataset, batch_size=32, shuffle=False, num_workers=4)
 
     # Fetch a few batches of data and plot them
     for batch_idx, (digit_images, labels) in enumerate(data_loader):
@@ -233,3 +235,4 @@ if __name__ == "__main__":
             break
 
     print("Visualization complete. Check the saved PNG files for each batch.")
+    # cv2_time, pil_time = compare_runtime()
