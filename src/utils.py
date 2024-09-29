@@ -33,79 +33,51 @@ def is_unique(nums):
     return len(nums) == len(np.unique(nums))  # Check if all elements are unique
 
 
-# Function to check if a number can be placed in a particular position
+# Check if the number n can be placed at grid[row][col]
 def is_valid(grid, row, col, num):
-    # Check if the number exists in the row
+    # Check if the number is in the row
     if num in grid[row]:
         return False
 
-    # Check if the number exists in the column
+    # Check if the number is in the column
     if num in grid[:, col]:
         return False
 
-    # Check if the number exists in the 3x3 subgrid
-    start_row, start_col = 3 * (row // 3), 3 * (col // 3)
-    subgrid = grid[start_row:start_row + 3, start_col:start_col + 3]
-    if num in subgrid:
-        return False
-
-    return True
-
-
-def solve_sudoku(grid: np.ndarray) -> np.ndarray:
-    """
-    Solve the Sudoku puzzle and return the solution if there is exactly one unique solution.
-    If there are 0 or more than 1 solutions, return None.
-    """
-    solution_count = [0]  # Track the number of solutions found
-    unique_solution = [None]  # Store the unique solution if found
-
-    # Helper function to perform backtracking and count solutions
-    def backtrack(grid):
-        empty = np.where(grid == 0)
-        if len(empty[0]) == 0:
-            # No empty cells, we found a solution
-            solution_count[0] += 1
-            if solution_count[0] == 1:
-                # Store the first solution found
-                unique_solution[0] = np.copy(grid)
-            # Stop further search if more than one solution is found
-            if solution_count[0] > 1:
+    # Check if the number is in the 3x3 box
+    box_row_start = (row // 3) * 3
+    box_col_start = (col // 3) * 3
+    for i in range(3):
+        for j in range(3):
+            if grid[box_row_start + i][box_col_start + j] == num:
                 return False
-            return True
 
-        row, col = empty[0][0], empty[1][0]
-
-        # Try placing numbers 1-9 in the empty cell
-        for num in range(1, 10):
-            if is_valid(grid, row, col, num):
-                grid[row, col] = num
-                if not backtrack(grid):  # If two solutions are found, stop recursion
-                    return False
-                grid[row, col] = 0  # Backtrack
-
-        return True
-
-    # Run the backtracking algorithm to search for all solutions
-    grid = grid.copy()
-    backtrack(grid)
-
-    # Return the unique solution if exactly one was found, otherwise return None
-    if solution_count[0] < 3:
-        return unique_solution[0]
-    else:
-        return None
-
-
-def is_valid(grid: np.ndarray, row: int, col: int, num: int) -> bool:
-    """Check if placing num in grid[row, col] is valid according to Sudoku rules."""
-    # Check if num is already in the current row, column, or 3x3 subgrid
-    if num in grid[row, :] or num in grid[:, col]:
-        return False
-    start_row, start_col = 3 * (row // 3), 3 * (col // 3)
-    if num in grid[start_row:start_row + 3, start_col:start_col + 3]:
-        return False
     return True
+
+
+# Function to solve the Sudoku puzzle
+def solve_sudoku(grid: np.ndarray) -> np.ndarray:
+    # Iterate through the grid to find an empty spot (marked as 0)
+    for row in range(9):
+        for col in range(9):
+            if grid[row][col] == 0:
+                # Try numbers 1 through 9
+                for num in range(1, 10):
+                    # Check if placing the number is valid
+                    if is_valid(grid, row, col, num):
+                        grid[row][col] = num  # Place the number
+
+                        # Recursively call the function to continue solving
+                        if solve_sudoku(grid):
+                            return grid
+
+                        # If it leads to an invalid state, backtrack
+                        grid[row][col] = 0
+
+                # If no number is valid, return False to backtrack
+                return None
+
+    # If the entire grid is filled, return the solved grid
+    return grid
 
 
 def save_model(model, path='./models/digit_classifier_svhn.pth'):

@@ -200,11 +200,11 @@ def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, devic
             # Convert probs to a PyTorch tensor if it's not already
             probs = torch.tensor(probs)  # Convert numpy array to tensor
 
-            # Check maximum probability confidence
-            max_prob = torch.max(probs).item()
-
-            # Compute the entropy of the probability distribution
-            entropy = -torch.sum(probs * torch.log(probs + 1e-8)).item()
+            # # Check maximum probability confidence
+            # max_prob = torch.max(probs).item()
+            #
+            # # Compute the entropy of the probability distribution
+            # entropy = -torch.sum(probs * torch.log(probs + 1e-8)).item()
 
             # Check if the prediction is confident based on both maximum probability and entropy
             # if max_prob > max_prob_threshold and entropy < entropy_threshold:
@@ -221,7 +221,7 @@ def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, devic
     limit = 20
     for i, sudoku_grid in enumerate(generate_most_probable_configuration(probs_list)):
         if not is_valid_sudoku(sudoku_grid):
-            # print("Not a valid grid")
+            print("Not a valid grid")
             continue
 
         solution = solve_sudoku(sudoku_grid)
