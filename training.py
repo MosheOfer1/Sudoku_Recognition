@@ -21,10 +21,13 @@ def main():
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (default: 32)')
     parser.add_argument('--model_path', type=str, default='./models/digit_classifier_default.pth',
                         help='Path to save/load the trained model')
+    parser.add_argument('--device', type=str, default='cpu', help='Which device cuda/cpu')
+
     args = parser.parse_args()
 
     # Select device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = args.device
     print(f"Using the {device}")
     print("Starting model training...")
 
