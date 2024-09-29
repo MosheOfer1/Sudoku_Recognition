@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 import torch
 import heapq
-from src.digit_recognition import is_cell_empty, predict_digit_with_probs, preprocess_digit_image
-from src.utils import solve_sudoku, is_valid_sudoku, solve_sudoku_copy
+from src.digit_recognition import is_cell_empty, predict_digit_with_probs, preprocess_digit_image, \
+    plot_all_digit_predictions
+from src.utils import solve_sudoku, is_valid_sudoku, solve_sudoku_copy, calculate_conflicts
 
 
 def detect_sudoku_grid(image):
@@ -91,18 +92,29 @@ def best_first_search(probs, keys):
     initial_state = [p[0][0] for p in probs]  # Highest index for each entry
     initial_prob_product = np.prod([p[0][1] for p in probs])  # Product of highest probabilities
 
-    # Push the initial state into the heap with negative priority (since heapq is min-heap)
-    heapq.heappush(heap, (-initial_prob_product, initial_prob_product, initial_state))
+    # Create initial grid
+    initial_grid = np.zeros((9, 9), dtype=int)
+    for index_str, digit in zip(keys, initial_state):
+        index = int(index_str)
+        row, col = divmod(index, 9)
+        initial_grid[row][col] = digit + 1
+
+    # Calculate initial conflicts
+    initial_conflicts = calculate_conflicts(initial_grid)
+
+    # Push initial state with both probability product and conflicts
+    heapq.heappush(heap, (initial_conflicts, -initial_prob_product, initial_prob_product, initial_state))
 
     # Visited states to avoid re-exploring
     visited = set()
 
     while heap:
         # Pop the node with the highest probability product
-        _, prob_product, current_state = heapq.heappop(heap)
+        conflicts, prob_product, _, current_state = heapq.heappop(heap)
 
         # Print the current best state and its probability product
-        print(f"Current best state: {[x+ 1 for x in current_state]}, Probability product: {prob_product}")
+        print(f"Current best state: {[x + 1 for x in current_state]}, "
+              f"Probability product: {prob_product}, Conflicts: {conflicts}")
 
         grid = np.zeros((9, 9), dtype=int)  # Create a 9x9 NumPy array initialized with zeros
 
@@ -141,8 +153,16 @@ def best_first_search(probs, keys):
                 # Calculate the new product of probabilities
                 new_prob_product = np.prod(new_prob)
 
-                # Push the new state into the heap
-                heapq.heappush(heap, (-new_prob_product, new_prob_product, new_state))
+                # Calculate new grid and its conflicts
+                new_grid = np.zeros((9, 9), dtype=int)
+                for index_str, digit in zip(keys, new_state):
+                    index = int(index_str)
+                    row, col = divmod(index, 9)
+                    new_grid[row][col] = digit + 1
+                new_conflicts = calculate_conflicts(new_grid)
+
+                # Push new state with both probability product and conflicts
+                heapq.heappush(heap, (new_conflicts, -new_prob_product, new_prob_product, new_state))
 
 
 def generate_most_probable_configuration(probs_list):
@@ -167,7 +187,7 @@ def generate_most_probable_configuration(probs_list):
 
 
 def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, device, max_prob_threshold=0.2,
-                                     entropy_threshold=2):
+                                     entropy_threshold=2, stop_event=None):
     """
     Extracts Sudoku grid and classifies each digit using only the black-and-white image,
     and plots the predictions and probabilities for each predicted cell in a single figure.
@@ -222,9 +242,12 @@ def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, devic
         if not is_valid_sudoku(sudoku_grid):
             print("Not a valid grid")
             continue
-
+        if stop_event is not None:
+            if stop_event.is_set():
+                return None, "Operation was stopped."
         # Use the solve_sudoku_copy to solve without modifying the original grid
         solution = solve_sudoku_copy(sudoku_grid)
+        print(solution)
         if solution is not None:
             return sudoku_grid, solution
 

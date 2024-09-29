@@ -1,14 +1,12 @@
 import argparse
-import multiprocessing
-import time
-
+import io
+import threading
 import openai
 from dotenv import load_dotenv
 import os
 import cv2
 import torch
 import traceback
-from io import BytesIO
 import numpy as np
 from src.grid_recognition import detect_sudoku_grid, warp_perspective, extract_sudoku_grid_and_classify
 from src.train_model import DigitClassifier
@@ -49,62 +47,6 @@ def generate_llm_response(user_id, user_message):
 
     # Return the assistant's response
     return assistant_message
-
-
-def solve_sudoku_with_timeout(image_data, model, device, timeout_duration):
-    # Create a multiprocessing Queue to capture the result
-    result_queue = multiprocessing.Queue()
-
-    # Create a multiprocessing process for the solver
-    process = multiprocessing.Process(
-        target=solve_sudoku_from_image_in_memory,
-        args=(image_data, model, device, result_queue)
-    )
-    process.start()
-
-    # Wait for the process to complete within the timeout
-    process.join(timeout_duration)
-
-    if process.is_alive():
-        print("Timeout exceeded. Terminating the process.")
-        process.terminate()  # Kill the process if it's still running
-        return None, "Timeout: The Sudoku-solving process took too long. Please try again with a clearer image."
-    else:
-        # Retrieve the result from the queue
-        if not result_queue.empty():
-            result, error_message = result_queue.get()
-            return result, error_message
-        else:
-            return None, "No result returned from the process."
-
-
-# Function to solve Sudoku from an image loaded in RAM
-def solve_sudoku_from_image_in_memory(image_data, model, device, result_queue):
-    # Get the image as a byte stream (without saving to disk)
-    image_data = BytesIO(image_data)
-
-    image_array = np.frombuffer(image_data.getvalue(), dtype=np.uint8)
-    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-
-    if image is None:
-        result_queue.put((None, "Error: Could not load the image. Please try again."))
-        return
-
-    try:
-        grid_contour = detect_sudoku_grid(image)
-        if grid_contour is not None:
-            colorful_pic, bw_warped_image = warp_perspective(image, grid_contour)
-            sudoku_grid, solution = extract_sudoku_grid_and_classify(colorful_pic, bw_warped_image, model, device)
-            if sudoku_grid is not None:
-                draw_solution_on_image(sudoku_grid, solution, colorful_pic)
-                result_queue.put((colorful_pic, None))  # Return result through queue
-            else:
-                result_queue.put((None, "Unable to solve the Sudoku puzzle. Make sure the image is clear and try again."))
-        else:
-            result_queue.put((None, "Failed to detect Sudoku grid. Please ensure the image is a clear picture of a Sudoku puzzle."))
-    except Exception as e:
-        traceback.print_exc()
-        result_queue.put((None, f"An error occurred: {e}"))
 
 
 # Draw the solution on the colorful image
@@ -170,80 +112,127 @@ def llm_chat_handler(update: Update, context: CallbackContext) -> None:
     # Send the response to the user
     update.message.reply_text(response)
 
+    # Limit the conversation history size
+    if len(conversation_history[user_id]) > 10:  # Keep only the last 10 messages
+        conversation_history[user_id] = conversation_history[user_id][-10:]
 
-# Function to handle image received from the user, processing it in memory with a timeout
-def image_handler(update: Update, context: CallbackContext) -> None:
-    user = update.message.from_user
-    user_id = user.id
-    processing_message = f"Thanks, {user.first_name}! I’m processing the image. This might take a few moments..."
 
-    update.message.reply_text(processing_message)
+class TimeoutException(Exception):
+    pass
 
-    # Update the conversation history
+
+def solve_sudoku_from_image_in_memory(image_data, model, device, stop_event):
+    # Modify this function to periodically check the stop_event
+    image_array = np.frombuffer(image_data, dtype=np.uint8)
+    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+    if image is None:
+        return None, "Error: Could not load the image. Please try again."
+    try:
+        grid_contour = detect_sudoku_grid(image)
+        if grid_contour is not None:
+            colorful_pic, bw_warped_image = warp_perspective(image, grid_contour)
+            sudoku_grid, solution = extract_sudoku_grid_and_classify(colorful_pic, bw_warped_image, model, device, stop_event=stop_event)
+            if sudoku_grid is not None:
+                draw_solution_on_image(sudoku_grid, solution, colorful_pic)
+                return colorful_pic, None
+            else:
+                return None, "Unable to solve the Sudoku puzzle. Make sure the image is clear and try again."
+        else:
+            return None, "Failed to detect Sudoku grid. Please ensure the image is a clear picture of a Sudoku puzzle."
+    except Exception as e:
+        traceback.print_exc()
+        return None, f"An error occurred: {e}"
+
+
+def run_with_timeout(func, args, timeout_duration):
+    result = [None]
+    exception = [None]
+    stop_event = threading.Event()
+
+    def target():
+        try:
+            result[0] = func(*args, stop_event)
+        except Exception as e:
+            exception[0] = e
+
+    thread = threading.Thread(target=target)
+    thread.start()
+    thread.join(timeout_duration)
+
+    if thread.is_alive():
+        stop_event.set()  # Signal the thread to stop
+        thread.join(1)  # Wait a bit more for the thread to finish
+        if thread.is_alive():
+            raise TimeoutException("Function execution timed out and thread is still running")
+        else:
+            raise TimeoutException("Function execution timed out")
+
+    if exception[0]:
+        raise exception[0]
+
+    return result[0]
+
+
+def sudoku_handler(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+
+    # Ensure the user has a conversation history
     if user_id not in conversation_history:
         conversation_history[user_id] = []
 
-    # Add the bot's message to the conversation history
-    conversation_history[user_id].append({"role": "assistant", "content": processing_message})
+    if not update.message.photo:
+        message = "Please send a photo of a Sudoku puzzle."
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+        conversation_history[user_id].append({"role": "assistant", "content": message})
+        return
 
-    file = update.message.photo[-1].get_file()
-    image_data = file.download_as_bytearray()  # Download the image data as a byte array
+    # Add user's action to conversation history
+    conversation_history[user_id].append({"role": "user", "content": "Sent a Sudoku puzzle image"})
 
-    # Start timing the Sudoku solving process
-    start_time = time.time()
+    file = context.bot.get_file(update.message.photo[-1].file_id)
+    image_buffer = io.BytesIO()
+    file.download(out=image_buffer)
+    image_data = image_buffer.getvalue()
 
-    # Solve the Sudoku with a timeout
-    solved_image, error = solve_sudoku_with_timeout(image_data, sudoku_model, device, timeout_duration=10)
+    try:
+        solved_image, error_message = run_with_timeout(
+            solve_sudoku_from_image_in_memory,
+            (image_data, context.bot_data['model'], context.bot_data['device']),
+            25  # 25 seconds timeout
+        )
 
-    # Calculate the elapsed time
-    elapsed_time = time.time() - start_time
+        if solved_image is not None:
+            is_success, buffer = cv2.imencode(".jpg", solved_image)
+            if is_success:
+                bio = io.BytesIO(buffer)
+                bio.seek(0)
+                context.bot.send_photo(chat_id=update.effective_chat.id, photo=bio, caption="Here's the solved Sudoku!")
+                conversation_history[user_id].append({"role": "assistant", "content": "Sent a solved Sudoku image"})
+            else:
+                message = "Error: Failed to encode the solved image."
+                context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+                conversation_history[user_id].append({"role": "assistant", "content": message})
+        else:
+            context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+            conversation_history[user_id].append({"role": "assistant", "content": error_message})
 
-    if solved_image is not None:
-        # Encode the solved image to bytes
-        _, buffer = cv2.imencode('.jpg', solved_image)
-        solved_image_bytes = BytesIO(buffer)
-
-        # Send the solved image back to the user
-        update.message.reply_photo(photo=solved_image_bytes)
-
-        # Create a message with the time it took to solve
-        solved_message = f"Sudoku solved! Here is the solution.\nIt took {elapsed_time:.2f} seconds to solve."
-        update.message.reply_text(solved_message)
-
-        # Add the bot's response to the conversation history
-        conversation_history[user_id].append({"role": "assistant", "content": solved_message})
-    else:
-        error_message = f"Error solving Sudoku: {error}"
-        update.message.reply_text(error_message)
-
-        # Add the error message to the conversation history
+    except TimeoutException:
+        message = "Sudoku solving timed out. Please try again with a clearer image."
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+        conversation_history[user_id].append({"role": "assistant", "content": message})
+    except Exception as e:
+        error_message = f"An error occurred: {str(e)}"
+        context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
         conversation_history[user_id].append({"role": "assistant", "content": error_message})
+        print(f"Error in sudoku_handler: {str(e)}")
+        traceback.print_exc()
+
+    # Optionally, you can limit the conversation history size
+    if len(conversation_history[user_id]) > 10:  # Keep only the last 10 messages
+        conversation_history[user_id] = conversation_history[user_id][-10:]
 
 
-# Set up the bot
 def main():
-    TOKEN = os.getenv("TOKEN")
-    updater = Updater(TOKEN)
-
-    dispatcher = updater.dispatcher
-
-    # Register the commands and handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("help", help_command))
-    dispatcher.add_handler(MessageHandler(Filters.photo, image_handler, run_async=True))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, llm_chat_handler))
-
-    # Start the bot
-    updater.start_polling()
-    updater.idle()
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Sudoku Bot')
-    parser.add_argument('--device', type=str, default='cpu', help='Which device cuda/cpu')
-    args = parser.parse_args()
-    multiprocessing.set_start_method('spawn')
-
     # Load environment variables from .env file
     load_dotenv()
 
@@ -258,6 +247,36 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Error loading Sudoku model: {e}")
         traceback.print_exc()
+        return
+
+    TOKEN = os.getenv("TOKEN")
+    updater = Updater(TOKEN)
+
+    dispatcher = updater.dispatcher
+
+    # Store the model and device in bot_data for access in handlers
+    dispatcher.bot_data['model'] = sudoku_model
+    dispatcher.bot_data['device'] = device
+
+    # Register the commands and handlers
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("help", help_command))
+    dispatcher.add_handler(MessageHandler(
+        Filters.photo,
+        sudoku_handler,
+        run_async=True
+    ))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, llm_chat_handler))
+
+    # Start the bot
+    updater.start_polling()
+    updater.idle()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Sudoku Bot')
+    parser.add_argument('--device', type=str, default='cpu', help='Which device cuda/cpu')
+    args = parser.parse_args()
 
     # Dictionary to store user conversation history
     conversation_history = {}

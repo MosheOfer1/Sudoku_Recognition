@@ -90,6 +90,34 @@ def solve_sudoku(grid: np.ndarray) -> bool:
     return True
 
 
+def calculate_conflicts(grid):
+    conflicts = 0
+
+    # Check rows
+    for row in grid:
+        conflicts += count_conflicts_in_array(row)
+
+    # Check columns
+    for col in grid.T:  # grid.T gives us the transpose of the grid
+        conflicts += count_conflicts_in_array(col)
+
+    # Check 3x3 sub-grids
+    for i in range(0, 9, 3):
+        for j in range(0, 9, 3):
+            sub_grid = grid[i:i + 3, j:j + 3].flatten()
+            conflicts += count_conflicts_in_array(sub_grid)
+
+    return conflicts
+
+
+def count_conflicts_in_array(arr):
+    # Count occurrences of each number (excluding 0)
+    counts = np.bincount(arr[arr != 0])
+
+    # Sum up conflicts (a count of n contributes n-1 conflicts)
+    return np.sum(np.maximum(counts - 1, 0))
+
+
 def save_model(model, path='./models/digit_classifier_svhn.pth'):
     # Save the trained model
     torch.save(model.state_dict(), path)
