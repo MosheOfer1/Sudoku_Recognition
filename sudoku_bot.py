@@ -1,3 +1,4 @@
+import argparse
 import multiprocessing
 import time
 
@@ -12,7 +13,7 @@ import numpy as np
 from src.grid_recognition import detect_sudoku_grid, warp_perspective, extract_sudoku_grid_and_classify
 from src.train_model import DigitClassifier
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, run_async
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 
 def generate_llm_response(user_id, user_message):
@@ -171,7 +172,6 @@ def llm_chat_handler(update: Update, context: CallbackContext) -> None:
 
 
 # Function to handle image received from the user, processing it in memory with a timeout
-@run_async
 def image_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     user_id = user.id
@@ -230,7 +230,7 @@ def main():
     # Register the commands and handlers
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("help", help_command))
-    dispatcher.add_handler(MessageHandler(Filters.photo, image_handler))
+    dispatcher.add_handler(MessageHandler(Filters.photo, image_handler, run_async=True))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, llm_chat_handler))
 
     # Start the bot
@@ -239,13 +239,16 @@ def main():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Sudoku Bot')
+    parser.add_argument('--device', type=str, default='cpu', help='Which device cuda/cpu')
+    args = parser.parse_args()
     multiprocessing.set_start_method('spawn')
 
     # Load environment variables from .env file
     load_dotenv()
 
     # Load Sudoku model
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = args.device
     model_path = 'models/digit_classifier.pth'
 
     try:
