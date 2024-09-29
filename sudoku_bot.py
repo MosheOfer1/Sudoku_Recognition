@@ -175,6 +175,7 @@ def run_with_timeout(func, args, timeout_duration):
 
 def sudoku_handler(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
+    user = update.message.from_user
 
     # Ensure the user has a conversation history
     if user_id not in conversation_history:
@@ -185,6 +186,10 @@ def sudoku_handler(update: Update, context: CallbackContext) -> None:
         context.bot.send_message(chat_id=update.effective_chat.id, text=message)
         conversation_history[user_id].append({"role": "assistant", "content": message})
         return
+    else:
+        processing_message = f"Thanks, {user.first_name}! I’m processing the image. This might take a few moments..."
+        context.bot.send_message(chat_id=update.effective_chat.id, text=processing_message)
+        conversation_history[user_id].append({"role": "assistant", "content": processing_message})
 
     # Add user's action to conversation history
     conversation_history[user_id].append({"role": "user", "content": "Sent a Sudoku puzzle image"})
