@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import heapq
 from src.digit_recognition import is_cell_empty, predict_digit_with_probs, preprocess_digit_image
-from src.utils import solve_sudoku, is_valid_sudoku
+from src.utils import solve_sudoku, is_valid_sudoku, solve_sudoku_copy
 
 
 def detect_sudoku_grid(image):
@@ -218,17 +218,15 @@ def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, devic
     # plot_all_digit_predictions(predicted_cells, [x[1] for x in probs_list])
 
     # Generate the most probable Sudoku configuration and attempt to solve it
-    limit = 20
     for i, sudoku_grid in enumerate(generate_most_probable_configuration(probs_list)):
         if not is_valid_sudoku(sudoku_grid):
             print("Not a valid grid")
             continue
 
-        solution = solve_sudoku(sudoku_grid)
+        # Use the solve_sudoku_copy to solve without modifying the original grid
+        solution = solve_sudoku_copy(sudoku_grid)
         if solution is not None:
             return sudoku_grid, solution
-        elif i == limit:
-            return None, None
 
     return None, None
 

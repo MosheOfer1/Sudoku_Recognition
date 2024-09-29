@@ -54,8 +54,18 @@ def is_valid(grid, row, col, num):
     return True
 
 
+def solve_sudoku_copy(grid: np.ndarray) -> np.ndarray:
+    # Create a copy of the grid to avoid modifying the original
+    grid_copy = np.copy(grid)
+
+    if solve_sudoku(grid_copy):
+        return grid_copy
+    else:
+        return None
+
+
 # Function to solve the Sudoku puzzle
-def solve_sudoku(grid: np.ndarray) -> np.ndarray:
+def solve_sudoku(grid: np.ndarray) -> bool:
     # Iterate through the grid to find an empty spot (marked as 0)
     for row in range(9):
         for col in range(9):
@@ -68,16 +78,16 @@ def solve_sudoku(grid: np.ndarray) -> np.ndarray:
 
                         # Recursively call the function to continue solving
                         if solve_sudoku(grid):
-                            return grid
+                            return True
 
                         # If it leads to an invalid state, backtrack
                         grid[row][col] = 0
 
                 # If no number is valid, return False to backtrack
-                return None
+                return False
 
-    # If the entire grid is filled, return the solved grid
-    return grid
+    # If the entire grid is filled, return True (solved)
+    return True
 
 
 def save_model(model, path='./models/digit_classifier_svhn.pth'):
