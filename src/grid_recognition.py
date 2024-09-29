@@ -207,12 +207,12 @@ def extract_sudoku_grid_and_classify(warped_image, bw_warped_image, model, devic
             entropy = -torch.sum(probs * torch.log(probs + 1e-8)).item()
 
             # Check if the prediction is confident based on both maximum probability and entropy
-            if max_prob > max_prob_threshold and entropy < entropy_threshold:
-                # Store the cell and probabilities if the model is confident
-                predicted_cells.append((index, digit_img))
-                probs_list.append((index, probs))
-            else:
-                print(f"Removed the {index} image with prob: {max_prob}, entropy: {entropy}")
+            # if max_prob > max_prob_threshold and entropy < entropy_threshold:
+            # Store the cell and probabilities if the model is confident
+            predicted_cells.append((index, digit_img))
+            probs_list.append((index, probs))
+            # else:
+            #     print(f"Removed the {index} image with prob: {max_prob}, entropy: {entropy}")
 
     # After processing all the cells, plot all the predictions in a single figure
     # plot_all_digit_predictions(predicted_cells, [x[1] for x in probs_list])

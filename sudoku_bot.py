@@ -12,7 +12,7 @@ import numpy as np
 from src.grid_recognition import detect_sudoku_grid, warp_perspective, extract_sudoku_grid_and_classify
 from src.train_model import DigitClassifier
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, run_async
 
 
 def generate_llm_response(user_id, user_message):
@@ -50,14 +50,14 @@ def generate_llm_response(user_id, user_message):
     return assistant_message
 
 
-def solve_sudoku_with_timeout(file, model, device, timeout_duration):
+def solve_sudoku_with_timeout(image_data, model, device, timeout_duration):
     # Create a multiprocessing Queue to capture the result
     result_queue = multiprocessing.Queue()
 
     # Create a multiprocessing process for the solver
     process = multiprocessing.Process(
         target=solve_sudoku_from_image_in_memory,
-        args=(file, model, device, result_queue)
+        args=(image_data, model, device, result_queue)
     )
     process.start()
 
@@ -78,9 +78,9 @@ def solve_sudoku_with_timeout(file, model, device, timeout_duration):
 
 
 # Function to solve Sudoku from an image loaded in RAM
-def solve_sudoku_from_image_in_memory(file, model, device, result_queue):
+def solve_sudoku_from_image_in_memory(image_data, model, device, result_queue):
     # Get the image as a byte stream (without saving to disk)
-    image_data = BytesIO(file.download_as_bytearray())
+    image_data = BytesIO(image_data)
 
     image_array = np.frombuffer(image_data.getvalue(), dtype=np.uint8)
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
@@ -171,6 +171,7 @@ def llm_chat_handler(update: Update, context: CallbackContext) -> None:
 
 
 # Function to handle image received from the user, processing it in memory with a timeout
+@run_async
 def image_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     user_id = user.id
@@ -186,12 +187,13 @@ def image_handler(update: Update, context: CallbackContext) -> None:
     conversation_history[user_id].append({"role": "assistant", "content": processing_message})
 
     file = update.message.photo[-1].get_file()
+    image_data = file.download_as_bytearray()  # Download the image data as a byte array
 
     # Start timing the Sudoku solving process
     start_time = time.time()
 
     # Solve the Sudoku with a timeout
-    solved_image, error = solve_sudoku_with_timeout(file, sudoku_model, device, timeout_duration=10)
+    solved_image, error = solve_sudoku_with_timeout(image_data, sudoku_model, device, timeout_duration=10)
 
     # Calculate the elapsed time
     elapsed_time = time.time() - start_time
