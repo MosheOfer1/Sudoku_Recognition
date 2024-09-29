@@ -43,7 +43,7 @@ class DynamicSudokuDataset(Dataset):
         # If we haven't generated a Sudoku yet or after every 81 digits, generate a new one
         if self.current_idx % 81 == 0:
             self.generate_new_sudoku()
-            plot_image(self.sudoku_image, idx)
+            # plot_image(self.sudoku_image, idx)
             self.current_idx = 0  # Reset index
 
         # Get the current digit and label
@@ -235,4 +235,3 @@ if __name__ == "__main__":
             break
 
     print("Visualization complete. Check the saved PNG files for each batch.")
-    # cv2_time, pil_time = compare_runtime()
